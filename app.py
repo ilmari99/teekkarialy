@@ -4,10 +4,10 @@ from FinGPTelebot import FinGPTelebot
 with open("_token.txt", "r") as f:
     TOKEN = f.read().strip()
 
-MODEL_NAME = 'TurkuNLP/gpt3-finnish-large'
+MODEL_NAME = 'gpt3-finetuned'
 N_MESSAGES = 10
 CHAT_TYPES = ['group', 'supergroup', 'private', 'channel', 'bot' ]
-bot = FinGPTelebot(MODEL_NAME, TOKEN, N_MESSAGES, simulate_users = True)
+bot = FinGPTelebot(MODEL_NAME, TOKEN, N_MESSAGES, simulate_users = False)
 @bot.bot.message_handler(commands=['start', 'help'], chat_types=CHAT_TYPES)
 def give_info(message):
     bot.give_info(message.chat.id)
