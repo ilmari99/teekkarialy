@@ -113,30 +113,25 @@ if __name__ == "__main__":
 
     for i in range(4):
         test_model(model, tokenizer, dataset_test)
-    #exit()
-    # Evaluate the model
-    #loss = evaluate_model(model, tokenizer, dataset_test)
-    #print(f"Loss: {loss}")
     # Train the model
-    # Continue from the previous training
     training_args = TrainingArguments(
-        output_dir='./results',          # output directory
-        num_train_epochs=1,              # total number of training epochs
-        per_device_train_batch_size=8,   # batch size per device during training
-        per_device_eval_batch_size=8,    # batch size for evaluation
-        warmup_steps=500,                # number of warmup steps for learning rate scheduler
-        weight_decay=0.01,               # strength of weight decay
-        logging_dir='./logs',            # directory for storing logs
+        output_dir='./results',
+        num_train_epochs=1,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
+        warmup_steps=500,
+        weight_decay=0.01,
+        logging_dir='./logs',
         logging_steps=10,
         save_steps=200,
         save_total_limit=2,
     )
     trainer = Trainer(
-        model=model,                         # the instantiated 🤗 Transformers model to be trained
-        args=training_args,                  # training arguments, defined above
-        train_dataset=dataset,         # training dataset
-        #eval_dataset=dataset,             # evaluation dataset
-        #data_collator=data_collator,         # define collator to format data
+        model=model,
+        args=training_args,
+        train_dataset=dataset,
+        #eval_dataset=dataset,
+        #data_collator=data_collator,
     )
     trainer.train()
     trainer.save_model("./gpt3-finetuned-telegram")
@@ -144,6 +139,7 @@ if __name__ == "__main__":
     tokenizer.save_pretrained("./gpt3-finetuned-telegram")
     # Save the dataset
     torch.save(dataset, "./gpt3-finetuned-telegram/dataset.pt")
+    print("Models saved.")
     for i in range(4):
         test_model(model, tokenizer, dataset_test)
 
