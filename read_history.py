@@ -40,7 +40,7 @@ def parse_names_and_messages(messages):
     return names_parsed, messages_parsed
 
 if __name__ == "__main__":
-    path = "__chat_export__.json"
+    path = "_private_data.json"
     messages = read_chat_history(path)
     print(f"Number of messages: {len(messages)}")
     names, messages = parse_names_and_messages(messages)
