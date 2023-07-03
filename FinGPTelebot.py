@@ -7,7 +7,7 @@ The bot might also send a sticker as a reply to a message in the future.
 """
 
 class FinGPTelebot:
-    def __init__(self, model_name, token, n_messages = 10, simulate_users = False):
+    def __init__(self, model_name, token, n_messages = 10, simulate_users = True):
         self.model_name = model_name
         self.token = token
         self.n_messages = n_messages
@@ -35,7 +35,12 @@ class FinGPTelebot:
         uname = self.parse_username(message.from_user.username)
         self.last_messages.append((uname, message.sticker.emoji))
         print(uname, message.sticker.emoji)
-
+        
+    def pre_fill_messages(self, messages):
+        """ Fill last_messages with messages messages (list of tuples (username, message))"""
+        self.last_messages = messages
+        
+        
     def store_file(self, message):
         uname = self.parse_username(message.from_user.username)
         self.last_messages.append((uname, message.document.file_name))
@@ -60,7 +65,7 @@ class FinGPTelebot:
         reply = reply.split("\n")
         parsed_reply = [reply[0]]
         for line in reply[1:]:
-            if line.startswith("GPT:"):
+            if line.startswith("GPT:") and line[4] != "n":
                 parsed_reply.append(line.replace("GPT:", ""))
             else:
                 break
@@ -69,22 +74,24 @@ class FinGPTelebot:
     def send_reply(self, chat_id):
         if len(self.last_messages) < 1:
             return
-        print("Sending reply")
+        #print("Sending reply ----------------------------------------")
         #Format "<username>: <message>\n<username>: <message>\nGPT:"
         prompt = "".join([f"{username}:{message}\n" for username, message in self.last_messages]) + "GPT:"
         prompt = self.pre_prompt + prompt
-        print(prompt,end="")
+        print(f"Received prompt\n---------------------------------------\n{prompt}\n---------------------------------------")
         model_reply = ""
-        tries = 0
-        while model_reply == "" and tries < 10:
-            model_reply = self.lm.get_only_new_tokens(prompt, temperature=0.6, max_new_tokens=100)
-            print(f"Full reply: {model_reply}")
-            reply = self.parse_reply(model_reply)
-            tries += 1
+        model_reply = self.lm.get_only_new_tokens(prompt, temperature=0.6, max_new_tokens=100)
+        print(f"Full reply\n---------------------------------------\n{model_reply}\n---------------------------------------")
+        if not model_reply:
+            print(f"No reply generated")
+            return
         # We possible have multiple replies, since the model might continue the conversation by sending multiple messages
-        for line in reply:
+        model_reply = self.parse_reply(model_reply)
+        print(f"Sending reply\n---------------------------------------")
+        for line in model_reply:
             print(line)
             self.last_messages.append(("GPT", line))
             self.bot.send_message(chat_id, line)
+        print("---------------------------------------")
 
     
