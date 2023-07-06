@@ -50,19 +50,27 @@ class TelegramDataset(Dataset):
         # Create a list of prompts, where each prompt is a sequence of messages
         prompts = []
         # Maintain a list of the last seq_len-1 messages
-        last_seq_len_messages = self.messages.iloc[0:self.seq_len-1,:].reset_index(drop=True)
+        last_seq_len_messages = self.messages.iloc[0:self.seq_len,:].reset_index(drop=True)
         # Loop through messages starting from the seq_len'th message,
         # since the first seq_len-1 messages are in the last_seq_len_messages list
         # Create a prompt, and update the last_seq_len_messages list
         for i in range(self.seq_len, len(self.messages)):
             prompt = ""
-            for j in range(self.seq_len-1):
+            # Get all messages except the last one
+            for j in range(self.seq_len):
                 prompt += f"{last_seq_len_messages['sender'][j]}:{last_seq_len_messages['message'][j]}\n"
-            prompt += "GPT:"
-            prompt = prompt + self.messages['message'][i]
+            # Change j to be te index of the last message in last_seq_len_messages window
+            #j += 1
+            actual_sender = last_seq_len_messages['sender'][j]
+            #actual_message = last_seq_len_messages['message'][j]
+            #print(f"Actual sender: {actual_sender}")
+            #prompt += actual_sender + ":"+last_seq_len_messages['message'][self.seq_len-1]
+            actual_sender = last_seq_len_messages['sender'][j]
+            prompt = prompt.replace(f"{actual_sender}:", "GPT:")
             prompts.append(prompt)
-            # Update the last seq_len-1 messages
-            last_seq_len_messages = self.messages.iloc[i-self.seq_len+1:i,:].reset_index(drop=True)
+            # Update the last_seq_len_messages list by removing the first message, and appending the next
+            last_seq_len_messages = last_seq_len_messages.iloc[1:,:].reset_index(drop=True)
+            last_seq_len_messages = pd.concat([last_seq_len_messages, self.messages.iloc[i,:].to_frame().transpose()], axis=0).reset_index(drop=True)
         overlap = self.seq_len if overlap is None else overlap
         # Only pick every overlap'th prompt
         prompts = prompts[::overlap]
@@ -88,7 +96,9 @@ def test_model(model, tokenizer, ds):
     # Get the prompt
     prompt = tokenizer.decode(sample['input_ids'], skip_special_tokens=True)
     try:
-        prompt_split = prompt.split("GPT:")
+        # Get the target, which is the last message after "GPT:"
+        # Find the last "GPT:" in the prompt
+        prompt_split = prompt.rsplit("GPT:", 1)
     except:
         print(f"No 'GPT:' in prompt: {prompt}")
         return
@@ -99,6 +109,8 @@ def test_model(model, tokenizer, ds):
         print(f"No target in prompt: {prompt}")
         return
     # Get the predicted next message
+    pre_prompt = "GPT on hauska ja vitsikäs Teekkari-botti;\n"
+    prompt = pre_prompt + prompt
     prompt_tensor = tokenizer(prompt, return_tensors='pt')['input_ids']
     output = model.generate(prompt_tensor, do_sample=True, temperature=0.6, max_new_tokens=50, no_repeat_ngram_size=2)
     output = tokenizer.decode(output.squeeze(), skip_special_tokens=True)
@@ -121,17 +133,17 @@ if __name__ == "__main__":
     # Load the dataset
     #model_name = 'TurkuNLP/gpt3-finnish-small'
     #model_name = "gpt3-finetuned-telegram"
-    model_name = "gpt3-xl-finetuned"
+    model_name = "gpt3-xl-finetuned-3"
     model, tokenizer = load_model(model_name)
-    dataset = TelegramDataset("_chat_history.csv", model, tokenizer, max_length=256, seq_len=10, overlap=9)
-    dataset_test = TelegramDataset("_chat_history_test.csv", model, tokenizer, max_length=256, seq_len=10, overlap=9)
+    dataset = TelegramDataset("_chat_history.csv", model, tokenizer, max_length=256, seq_len=15, overlap=9)
+    dataset_test = TelegramDataset("_chat_history_test.csv", model, tokenizer, max_length=256, seq_len=15, overlap=9)
     
     # Clean up the cache
     torch.cuda.empty_cache()
     # Reserve all the GPU memory
     #torch.cuda.set_per_process_memory_fraction(0.99, None)
     
-    for i in range(4):
+    for i in range(6):
         pass
         test_model(model, tokenizer, dataset_test)
     exit()
