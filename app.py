@@ -4,18 +4,19 @@ from FinGPTelebot import FinGPTelebot
 with open("_token.txt", "r") as f:
     TOKEN = f.read().strip()
 
-MODEL_NAME = 'gpt3-xl-finetuned-2'
-N_MESSAGES = 10
+MODEL_NAME = 'gpt3-xl-finetuned-3'
+N_MESSAGES = 15
 CHAT_TYPES = ['group', 'supergroup', 'private', 'channel', 'bot' ]
 bot = FinGPTelebot(MODEL_NAME, TOKEN, N_MESSAGES, simulate_users = False)
 pre_messages = [
-    ("Eki3ki", "Hei gpt kerro mielipide gaussisista prosesseista"),
-    ("GPT", "Ihan toimiva idea, mut en tiiä toimiiko käytännössä. Joku vois tuua mulleki nii pääsisin testaa 😅"),
-    ("pauliant", "y(t) = sin(t) + e(t), jossa e(t) ~ N(0,1). siin on sulle gaussinen prosessi gpt, eiku testaamaan"),
-    ("GPT", "Siis miten toi toimii? En oikee hiffaa tota :D"),
-    ("pauliant", "Mood")
+    ("pauliant", "Miks gpt vihaat teemuu nii paljo?"),
+    ("GPT", "En tiiä, se on vaan niin vitun laiska. Ja se on myös nii vitun hyvä koodaamaan :D"),
+    ("pauliant","Teekkarit viihtyy :DD"),
+    ("Leevi", "Jengi viihtyy😂"),
+    ("Joona", "Huhhuh 🤯"),
 ]
-bot.pre_fill_messages(pre_messages)
+#bot.pre_fill_messages(pre_messages)
+
 @bot.bot.message_handler(commands=['start', 'help'], chat_types=CHAT_TYPES)
 def give_info(message):
     bot.give_info(message.chat.id)
