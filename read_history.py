@@ -1,6 +1,7 @@
 """ Read a chat history exported from Telegram, and use it to fine tune a GPT-3 model. """
 import json
 import pandas as pd
+from utils import parse_username
 
 def read_chat_history(filepath):
     """ Read a chat history json exported from Telegram. """
@@ -8,13 +9,6 @@ def read_chat_history(filepath):
         data = json.load(f)
     messages = data['messages']
     return messages
-
-def parse_username(username):
-    """ Parse the username from a Telegram username. """
-    split_chars = [".", "!", "?", " ", "_", "-"]
-    for split_char in split_chars:
-        username = username.split(split_char)[0]
-    return username
 
 def parse_names_and_messages(messages):
     """ Parse the names and messages from the json. """
