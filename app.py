@@ -8,14 +8,6 @@ MODEL_NAME = 'gpt3-xl-finetuned-3'
 N_MESSAGES = 15
 CHAT_TYPES = ['group', 'supergroup', 'private', 'channel', 'bot' ]
 bot = FinGPTelebot(MODEL_NAME, TOKEN, N_MESSAGES, simulate_users = False)
-pre_messages = [
-    ("pauliant", "Miks gpt vihaat teemuu nii paljo?"),
-    ("GPT", "En tiiä, se on vaan niin vitun laiska. Ja se on myös nii vitun hyvä koodaamaan :D"),
-    ("pauliant","Teekkarit viihtyy :DD"),
-    ("Leevi", "Jengi viihtyy😂"),
-    ("Joona", "Huhhuh 🤯"),
-]
-#bot.pre_fill_messages(pre_messages)
 
 @bot.bot.message_handler(commands=['start', 'help'], chat_types=CHAT_TYPES)
 def give_info(message):
