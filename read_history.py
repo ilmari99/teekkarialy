@@ -4,7 +4,9 @@ import pandas as pd
 from utils import parse_username
 
 def read_chat_history(filepath):
-    """ Read a chat history json exported from Telegram. """
+    """ Read a chat history json exported from Telegram.
+    Return a list of messages.
+    """
     with open(filepath, 'r',encoding="utf-8") as f:
         data = json.load(f)
     messages = data['messages']
@@ -14,6 +16,7 @@ def parse_names_and_messages(messages):
     """ Parse the names and messages from the json. """
     names_parsed = []
     messages_parsed = []
+    times_parsed = []
     for message in messages:
         if 'from' not in message:
             print("No from in message")
@@ -31,14 +34,19 @@ def parse_names_and_messages(messages):
             messages_parsed.append(message_text)
             uname = parse_username(message['from'])
             names_parsed.append(uname)
-    return names_parsed, messages_parsed
+            # Only get the time, not the date
+            date = message['date'].split("T")[1]
+            # Remove the seconds
+            date = date.rsplit(":", 1)[0]
+            times_parsed.append(date)
+    return times_parsed, names_parsed, messages_parsed
 
 if __name__ == "__main__":
     path = "_private_data.json"
     messages = read_chat_history(path)
     print(f"Number of messages: {len(messages)}")
-    names, messages = parse_names_and_messages(messages)
+    times, names, messages = parse_names_and_messages(messages)
     print(f"Read {len(messages)} messages from {len(names)} users.")
     # Save to file
-    df = pd.DataFrame({'sender': names, 'message': messages})
-    df.to_csv("_chat_history.csv", index=False, encoding="utf-8", sep=";")
+    df = pd.DataFrame({"time": times, "sender": names, "message": messages})
+    df.to_csv("_chat_history_times.csv", index=False, encoding="utf-8", sep=";")
