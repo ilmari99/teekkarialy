@@ -33,9 +33,9 @@ class TelegramDataset(Dataset):
         self.overlap = overlap
         self.max_length = max_length
         # Messages contain a sequence of sender-message pairs
-        self.messages = pd.read_csv(self.filepath,sep = ";", encoding="utf-8")
+        self.messages = pd.read_csv(self.filepath,sep = ";", encoding="utf-8")[0:300]
         # Drop if the message has over 80 characters
-        self.messages = self.messages[self.messages['message'].str.len() < 120]
+        self.messages = self.messages[self.messages['message'].str.len() < 200]
         self.messages = self.messages.reset_index(drop=True)
         # Change 30% of the senders to "GPT"
         #self.messages['sender'] = self.messages['sender'].apply(lambda x: "GPT" if random.random() < 0.3 else x)
@@ -58,15 +58,18 @@ class TelegramDataset(Dataset):
             prompt = ""
             # Get all messages except the last one
             for j in range(self.seq_len):
-                prompt += f"{last_seq_len_messages['sender'][j]}:{last_seq_len_messages['message'][j]}\n"
+                prompt += f"{last_seq_len_messages['sender'][j]}({last_seq_len_messages['time'][j]}):{last_seq_len_messages['message'][j]}\n"
             # Change j to be te index of the last message in last_seq_len_messages window
             #j += 1
+            #print(f"prompt: {prompt}")
             actual_sender = last_seq_len_messages['sender'][j]
             #actual_message = last_seq_len_messages['message'][j]
             #print(f"Actual sender: {actual_sender}")
             #prompt += actual_sender + ":"+last_seq_len_messages['message'][self.seq_len-1]
             actual_sender = last_seq_len_messages['sender'][j]
-            prompt = prompt.replace(f"{actual_sender}:", "GPT:")
+            #print(f"Actual sender: {actual_sender}")
+            prompt = prompt.replace(f"{actual_sender}", "GPT")
+            #print(f"NEW prompt: {prompt}")
             prompts.append(prompt)
             # Update the last_seq_len_messages list by removing the first message, and appending the next
             last_seq_len_messages = last_seq_len_messages.iloc[1:,:].reset_index(drop=True)
@@ -75,10 +78,10 @@ class TelegramDataset(Dataset):
         # Only pick every overlap'th prompt
         prompts = prompts[::overlap]
         return prompts
-            
+
     def __len__(self):
         return len(self.prompts) - self.seq_len
-    
+
     def __getitem__(self, idx):
         prompt = self.prompts[idx]
         # Encode the prompt, and pad/truncate it to a fixed length
@@ -86,7 +89,6 @@ class TelegramDataset(Dataset):
         input = self.tokenizer(prompt, return_tensors='pt', padding='max_length', truncation=True, max_length=self.max_length)
 
         return {"input_ids": input['input_ids'].squeeze(), "labels": input['input_ids'].squeeze()}
-
 
 def test_model(model, tokenizer, ds):
     """ Test the model on the dataset. """
@@ -98,7 +100,8 @@ def test_model(model, tokenizer, ds):
     try:
         # Get the target, which is the last message after "GPT:"
         # Find the last "GPT:" in the prompt
-        prompt_split = prompt.rsplit("GPT:", 1)
+        prompt_split = prompt.rsplit("GPT", 1)
+        #print(prompt_split)
     except:
         print(f"No 'GPT:' in prompt: {prompt}")
         return
@@ -133,10 +136,10 @@ if __name__ == "__main__":
     # Load the dataset
     #model_name = 'TurkuNLP/gpt3-finnish-small'
     #model_name = "gpt3-finetuned-telegram"
-    model_name = "gpt3-xl-finetuned-3"
+    model_name = "gpt3-xl-finetuned-time"
     model, tokenizer = load_model(model_name)
-    dataset = TelegramDataset("_chat_history.csv", model, tokenizer, max_length=256, seq_len=15, overlap=9)
-    dataset_test = TelegramDataset("_chat_history_test.csv", model, tokenizer, max_length=256, seq_len=15, overlap=9)
+    #dataset = TelegramDataset("_chat_history.csv", model, tokenizer, max_length=256, seq_len=15, overlap=9)
+    dataset_test = TelegramDataset("_chat_history_times.csv", model, tokenizer, max_length=256, seq_len=15, overlap=9)
     
     # Clean up the cache
     torch.cuda.empty_cache()
