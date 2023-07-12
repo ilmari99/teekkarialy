@@ -4,8 +4,8 @@ from FinGPTelebot import FinGPTelebot
 with open("_token.txt", "r") as f:
     TOKEN = f.read().strip()
 
-MODEL_NAME = 'gpt3-xl-finetuned-3'
-N_MESSAGES = 15
+MODEL_NAME = 'gpt3-xl-finetuned-time'
+N_MESSAGES = 20
 CHAT_TYPES = ['group', 'supergroup', 'private', 'channel', 'bot' ]
 bot = FinGPTelebot(MODEL_NAME, TOKEN, N_MESSAGES, simulate_users = False)
 
