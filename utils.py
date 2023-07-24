@@ -1,8 +1,12 @@
 import time
 import datetime
-
+from telebot.types import Message
 
 TIME_FORMAT = "%H:%M"
+BEGIN_MSG_DELIMITER = "[MSG]"
+END_MSG_DELIMITER = "[MEG]"
+SEPARATOR = "[FS]"
+
 
 def parse_username(username):
     """ Parse a username from a Telegram username.
