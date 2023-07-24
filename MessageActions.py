@@ -10,6 +10,23 @@ from telebot.types import Message
 from utils import get_curr_time, unix_time_to_ISO, parse_username
 if TYPE_CHECKING:
     from BotHead import BotHead
+    
+JOKE_BEGIN_PROMPTS = [
+    "Keksin eile hauskan vitsin",
+    "Tässä teille hauska Teekkari vitsi",
+    "Ai että, tuli hauska vitsi mieleen",
+    "Siis kuulin tän vitsin eilen",
+    "Kotiseutukursioilla kuulin tän vitsin",
+    ]
+    
+JOKE_BEGINS = [
+    "Mikä on",
+    "Mitä saa kun",
+    "Kuinka monta",
+    "Miksi",
+    "Olipa kerran",
+    "",
+]
 
 
 class BaseHandler(ABC):
@@ -30,6 +47,11 @@ class BaseHandler(ABC):
         """
         return f"[MSG]{msg.message_id}[FS]{get_curr_time()}[FS]{self.tg_bot.tg_name}[FS]"
     
+    def check_message_is_text(self, msg : Message) -> bool:
+        """ Checks if the message is a text message.
+        """
+        return msg.content_type == "text"
+    
     @abstractmethod
     def handle(self, msg : Message) -> Any:
         """ Takes in a message, and returns True if the message is handled, and False otherwise."""
@@ -47,33 +69,21 @@ class OnFirstMessageInNewChat(BaseHandler):
             return False
         
         # Introduce the bot in a polite but fun way
-        message_part1 = "Kiitos ryhmään pääsystä! Olen Teekkariuteen pohjautuva tekoäly. Yritän jatkaa keskustelua samalla tyylillä, lisäten siihen huumoria, hehe. Tässä teille yksi vitsi:"
-        prompt = self.get_additional_message_prompt(msg) + message_part1
+        message_part1 = "Kiitos ryhmään pääsystä! Olen Teekkariuteen pohjautuva tekoäly. \
+        Yritän jatkaa keskustelua samalla tyylillä, lisäten siihen huumoria, hehe. \
+        Tässä teille yksi vitsi: "
+        joke_begin = self.get_random_joke_begin()
+        prompt = self.get_additional_message_prompt(msg) + message_part1 + joke_begin
         # Generate a joke
-        message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.7, max_new_tokens=70, token="[FS]").replace("[FS]", "")
+        message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.5, max_new_tokens=70, token="[FS]").replace("[FS]", "")
         # send
-        self.tg_bot.send_message_wrapper(msg.chat.id, message_part1 + message_part2)
+        self.tg_bot.send_message_wrapper(msg.chat.id, message_part1 + message_part2 + joke_begin)
         return True
     
-class GiveGenericInformation(BaseHandler):
-    """ Give information about the bot.
-    This is triggered by the command "/gpt".
-    """
-    command = "/gpt-info"
-    def handle(self, msg : Message) -> Any:
-        """ If the message is "/gpt", give information about the bot.
+    def get_random_joke_begin(self):
+        """ Returns a random joke beginning.
         """
-        msg_text = msg.text.lower()
-        input_msg_id = msg.message_id
-        if msg_text != self.command:
-            return False
-        bot_info ="""
-        Moi!
-        Olen TurkuNLP:n kouluttamaan suomalaiseen GPT malliin pohjautuva tekoäly, johon on lisätty huumoria LUT:sta.
-        Olen koulutettu keskustelun historialla, ja yritän jatkaa keskustelua samalla tyylillä, mutta lisäten siihen huumoria.
-        """
-        self.tg_bot.send_message_wrapper(msg.chat.id, bot_info, reply_to_message_id=input_msg_id)
-        return True
+        return random.choice(JOKE_BEGINS)
     
 class GiveCommandInformation(BaseHandler):
     """ Give information about the supported commands.
@@ -82,9 +92,8 @@ class GiveCommandInformation(BaseHandler):
     def handle(self, msg : Message) -> Any:
         """ If the message is "/gpt", give information about the bot.
         """
-        msg_text = msg.text.lower()
         input_msg_id = msg.message_id
-        if msg_text != self.command:
+        if msg.content_type != "text" or not msg.text.startswith(self.command):
             return False
         bot_info ="""
         Moi!
@@ -106,21 +115,19 @@ class MakeJoke(BaseHandler):
     command = "/vitsi"
     
     def get_random_joke_prompt(self):
-        possible_prompts = ["Keksin eile hauskan vitsin",
-                            "Tässä teille hauska Teekkari vitsi",
-                            "Ai että, tuli hauska vitsi mieleen",
-                            "Siis kuulin tän vitsin eilen",
-                            "Kotiseutukursioilla kuulin tän vitsin",
-                            ]
-        return random.choice(possible_prompts)
+        return random.choice(JOKE_BEGIN_PROMPTS)
+    
+    def get_random_joke_begin(self):
+        return random.choice(JOKE_BEGINS)
     
     def handle(self, msg : Message) -> Any:
         """ If the message is "/vitsi [topic]", generate a joke and send it.
         """
+        
+        if msg.content_type != "text" or not msg.text.startswith(self.command):
+            return False
         msg_text = msg.text.lower()
         input_msg_id = msg.message_id
-        if not msg_text.startswith(self.command):
-            return False
         
         # Parse the joke topic
         joke_topic = msg_text.replace(self.command, "").strip()
@@ -132,13 +139,16 @@ class MakeJoke(BaseHandler):
         # If a joke topic is specified, add it to the prompt
         if joke_topic:
             message_part1 += f" aiheesta '{joke_topic}'"
-        message_part1 += ":"
+        message_part1 += ": "
+        joke_begin = self.get_random_joke_begin()
         # Add a message beginning '[MSG]<id>[FS]<time>[FS]<sender>[FS]' to the prompt
-        prompt = self.get_additional_message_prompt(msg) + message_part1
+        prompt = self.get_additional_message_prompt(msg) + message_part1 + joke_begin
         
-        message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.7, max_new_tokens=70, token="[FS]").replace("[FS]", "")
+        print(f"Prompt --------------------------------------------\n{prompt}\n--------------------------------------------")
         
-        self.tg_bot.send_message_wrapper(msg.chat.id, message_part2, reply_to_message_id=input_msg_id)
+        message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.5, max_new_tokens=70, token="[FS]").replace("[FS]", "")
+        
+        self.tg_bot.send_message_wrapper(msg.chat.id, joke_begin + message_part2, reply_to_message_id=input_msg_id)
         return True
 
 class LMGenerateOnTriggerPhrase(BaseHandler):
@@ -149,6 +159,8 @@ class LMGenerateOnTriggerPhrase(BaseHandler):
     def handle(self, msg: Message) -> Any:
         """ If the message contains a trigger phrase, send a reply.
         """
+        if msg.content_type != "text":
+            return False
         msg_text = msg.text.lower()
         if not any(trigger in msg_text for trigger in self.trigger_phrases):
             return False
