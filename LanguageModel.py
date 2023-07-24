@@ -18,7 +18,7 @@ class LanguageModel:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def generate(self, prompt, temperature=0.5, max_new_tokens=50):
-        print(f"PROMPT --------------------------------------------\n{prompt}\n--------------------------------------------")
+        #print(f"PROMPT --------------------------------------------\n{prompt}\n--------------------------------------------")
         input = self.tokenizer(prompt, return_tensors='pt')
         output = self.model.generate(
             **input,
