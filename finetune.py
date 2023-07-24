@@ -31,6 +31,27 @@ import random
 import numpy as np
 import os
 from LanguageModel import LanguageModel
+# Only keep local stuff, so we can easily run this file in colab
+
+#from message_conversion import message_df_row_2_string
+#from utils import BEGIN_MSG_DELIMITER, END_MSG_DELIMITER, SEPARATOR
+
+BEGIN_MSG_DELIMITER = "[MSG]"
+END_MSG_DELIMITER = "[MEG]"
+SEPARATOR = "[FS]"
+
+
+
+def message_df_row_2_string(row : pd.Series,only_prompt_string = False) -> str:
+    """ Convert a row of a message dataframe to a string that represents the message.
+    This is used to input a series of messages to the model.
+    """
+    msg_string = BEGIN_MSG_DELIMITER + str(row["id"]) + SEPARATOR + str(row["time"]) + SEPARATOR + str(row["from"]) + SEPARATOR
+    if only_prompt_string:
+        return msg_string
+    msg_string += str(row["text"]) + SEPARATOR + str(row["reply_to_message_id"]) + END_MSG_DELIMITER
+    return msg_string
+
 
 def load_dataset(path, test_split_frac = 0.1):
     """ Load a dataset from a csv file.
@@ -52,7 +73,7 @@ def load_model(model_name = "TurkuNLP/gpt3-finnish-small"):
     """
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
-    new_tokens = ["[FS]", "[MSG]","[MEG]"]
+    new_tokens = [BEGIN_MSG_DELIMITER, END_MSG_DELIMITER, SEPARATOR]
     tokenizer.add_tokens(new_tokens, special_tokens=True)
     # Check if the tokenizer has padding token
     if tokenizer.pad_token is None:
@@ -68,7 +89,15 @@ class ChatHistoryDataset(Dataset):
     and batches them into segments, which are used to finetune a GPT-3 model.
     Each message has the following: id;time;from;text;reply_to_message_id
     """
-    def __init__(self, df, tokenizer, filter_messages_over_chars = 200, max_tokens_in_segment = 350, segment_len = 10, replace_sender_with = "FinGPT_bot"):
+    def __init__(self,
+                 df : pd.DataFrame,
+                 tokenizer : AutoTokenizer,
+                 filter_messages_over_chars : int = 200,
+                 max_tokens_in_segment : int = 350,
+                 segment_len : int = 10,
+                 replace_sender_with : str = "FinGPT_bot",
+                 shuffle_segments : bool = True
+                 ):
         self.df = df
         self.tokenizer = tokenizer
         self.max_tokens_in_segment = max_tokens_in_segment
@@ -80,6 +109,8 @@ class ChatHistoryDataset(Dataset):
         print(f"Number of messages after dropping messages with over {filter_messages_over_chars} characters: {len(self.parsed_df)}")
 
         self.segments = self._create_segments()
+        if shuffle_segments:
+            random.shuffle(self.segments)
 
     def _create_segments(self):
         """ Create len(df) / segment_len dataframes where each dataframe has segment_len messages.
@@ -93,16 +124,11 @@ class ChatHistoryDataset(Dataset):
         return segments
 
     def segment_as_prompt(self, segment_df):
-        """ Convert a segment dataframe to a string, that looks like:
-        ```
-        [MSG]1189[FS]21:12[FS]GPT[FS]Saisko tldr kokouksest😂[FS][MEG]
-        [MSG]1190[FS]21:13[FS]Taru Haimi[FS]Tervetuloa hallitukseen 😎[FS][MEG]
-        [MSG]1191[FS]21:13[FS]GPT[FS]Tää 😄[FS]1190[MEG]
-        ```
+        """ Convert a segment dataframe to a prompt string
         """
         prompt = ""
         for _, row in segment_df.iterrows():
-            prompt += f"[MSG]{row['id']}[FS]{row['time']}[FS]{row['from']}[FS]{row['text']}[FS]{row['reply_to_message_id']}[MEG]\n"
+            prompt += message_df_row_2_string(row) + "\n"
         return prompt
 
     def _prepare_segment(self, segment_df):
@@ -155,11 +181,12 @@ def test_on_prompts(model, tokenizer, dataset, num_prompts = 10, pre_prompt = ""
         
         # Add the last message to the prompt up to the username
         #prompt = pre_prompt + middle_prompt + "\n" + str(last_message["id"]) + ";" + last_message["time"] + ";" + str(last_message["from"]) + ";"
-        prompt = pre_prompt + middle_prompt + "[MSG]" + str(last_message["id"]) + "[FS]" + last_message["time"] + "[FS]" + str(last_message["from"]) + "[FS]"
+        prompt = pre_prompt + middle_prompt
+        prompt += message_df_row_2_string(last_message, only_prompt_string=True)
         
         print(f"Prompt {idx}\n----------------------------------- \n", prompt, "\n-----------------------------------")
         pred_resp = lang_model.get_only_new_tokens(prompt, temperature=0.7, max_new_tokens=50)
-        true_resp = last_message["text"] + "[FS]" + str(last_message["reply_to_message_id"]) + "[MEG]"
+        true_resp = last_message["text"]
         print(f"Predicted response: {pred_resp}")
         print(f"True response: {true_resp}")
         
@@ -168,7 +195,7 @@ def test_on_prompts(model, tokenizer, dataset, num_prompts = 10, pre_prompt = ""
 
 if __name__ == "__main__":
     #MODEL_NAME = "TurkuNLP/gpt3-finnish-small"
-    MODEL_NAME = "gpt3-xl-finetuned-v4"
+    MODEL_NAME = "gpt3-xl-finetuned-bigdata-v1"
     #MODEL_NAME = "finetuned_model"
     SAVE_PATH = "./finetuned_model"
     TEST_RUN = False
@@ -176,7 +203,7 @@ if __name__ == "__main__":
     
     # reset backend
     torch.cuda.empty_cache()
-    train_data_df, test_data_df = load_dataset("_chat_history.csv")
+    train_data_df, test_data_df = load_dataset("_chat_history_test.csv")
     if TEST_RUN:
         train_data_df = train_data_df[:100]
         test_data_df = test_data_df[:100]
@@ -200,8 +227,8 @@ if __name__ == "__main__":
     training_args = TrainingArguments(
         output_dir=SAVE_PATH,
         num_train_epochs=2,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=4,
         warmup_steps=50,
         weight_decay=0.01,
         logging_dir='./logs',
