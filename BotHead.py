@@ -10,6 +10,7 @@ import time
 import pandas as pd
 from telebot.types import Message
 from message_conversion import message_2_df_row, message_df_row_2_string, message_string_2_df_row
+import utils
 from utils import BEGIN_MSG_DELIMITER, END_MSG_DELIMITER, SEPARATOR
 
 
@@ -47,9 +48,7 @@ class BotHead:
                 f.write("id;time;from;text;reply_to_message_id\n")
             self.last_messages[chat_id] = pd.DataFrame(columns=["id", "time", "from", "text", "reply_to_message_id"])
         else:
-            self.last_messages[chat_id] = pd.read_csv("ChatDatas/" + str(chat_id) + ".csv", sep=";")
-            # Get at most n_messages messages
-            self.last_messages[chat_id] = self.last_messages[chat_id].tail(self.n_messages)
+            self.last_messages[chat_id] = utils.read_chat_history_csv("ChatDatas/" + str(chat_id) + ".csv")
         return
     
     
@@ -87,7 +86,7 @@ class BotHead:
         self.last_messages[message.chat.id] = pd.concat([self.last_messages[message.chat.id], new_df], ignore_index=True)
         # Remove the oldest message as long as the prompt is too long
         # TODO: change threshold to variable
-        while self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[message.chat.id])) > 450:
+        while self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[message.chat.id])) > 512:
             self.last_messages[message.chat.id].drop(self.last_messages[message.chat.id].head(1).index, inplace=True)
         
     def get_n_tokens(self, text):
