@@ -1,12 +1,23 @@
 import time
 import datetime
 from telebot.types import Message
+import pandas as pd
 
 TIME_FORMAT = "%H:%M"
 BEGIN_MSG_DELIMITER = "[MSG]"
 END_MSG_DELIMITER = "[MEG]"
 SEPARATOR = "[FS]"
 
+
+def read_chat_history_csv(filepath):
+    """ Standardized way to read a chat history csv.
+    """
+    df = pd.read_csv(filepath, sep=";")
+    # Fill nan's with empty strings
+    df.fillna("", inplace=True)
+    # Convert response_to_message_id to int if it is not empty
+    df["reply_to_message_id"] = df["reply_to_message_id"].apply(lambda x: int(x) if x != "" else x)
+    return df
 
 def parse_username(username):
     """ Parse a username from a Telegram username.
