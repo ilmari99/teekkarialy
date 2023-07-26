@@ -90,7 +90,7 @@ def message_2_df_row(message : Message) -> pd.Series:
     msg_id = message.message_id
     send_time = utils.data_datestamp_to_time(utils.unix_time_to_ISO(message.date))
     sender = utils.parse_username(message.from_user.username)
-    reply_id = message.reply_to_message.message_id if message.reply_to_message else None
+    reply_id = message.reply_to_message.message_id if message.reply_to_message else ""
     sticker_emoji = message.sticker.emoji if message.sticker else None
     message_text = utils.parse_message_text(message.text) if message.text else ""
     
