@@ -25,10 +25,11 @@ The handlers make actions through the bot.
 """
 
 class BotHead:
-    def __init__(self, model_name, access_token, n_messages = 10, tg_name="FinGPT_bot"):
+    def __init__(self, model_name, access_token, max_n_tokens = 2048, tg_name="FinGPT_bot"):
+        self.start_time = time.time()
         self.model_name = model_name
         self.access_token = access_token
-        self.n_messages = n_messages
+        self.max_n_tokens = max_n_tokens
         self.tg_name = tg_name
         self.last_messages : dict[int, pd.DataFrame] = {}
         pre_prompt = f"Nimeni on {self.tg_name} ja olen hauska ja ystävällinen Teekkari tekoäly LUT:sta. Harrastan komiikkaa ja koodausta."
@@ -40,15 +41,17 @@ class BotHead:
     def _init_last_messages(self, chat_id):
         """ Initialize the last_messages dict, by putting an empty dataframe for the chat_id.
         """
+        print(f"Initializing chat {chat_id}")
         # Create a csv file for the chat
         os.makedirs("ChatDatas/", exist_ok=True)
         if not os.path.exists("ChatDatas/" + str(chat_id) + ".csv"):
             # Write headers
-            with open("ChatDatas/" + str(chat_id) + ".csv", "a") as f:
+            with open("ChatDatas/" + str(chat_id) + ".csv", "a", encoding="utf-8") as f:
                 f.write("id;time;from;text;reply_to_message_id\n")
             self.last_messages[chat_id] = pd.DataFrame(columns=["id", "time", "from", "text", "reply_to_message_id"])
         else:
             self.last_messages[chat_id] = utils.read_chat_history_csv("ChatDatas/" + str(chat_id) + ".csv")
+        print(f"Initialized chat {chat_id}")
         return
     
     
@@ -85,9 +88,13 @@ class BotHead:
         new_df.to_csv("ChatDatas/" + str(message.chat.id) + ".csv", mode="a", header=False, index=False, sep=";")
         self.last_messages[message.chat.id] = pd.concat([self.last_messages[message.chat.id], new_df], ignore_index=True)
         # Remove the oldest message as long as the prompt is too long
-        # TODO: change threshold to variable
-        while self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[message.chat.id])) > 512:
-            self.last_messages[message.chat.id].drop(self.last_messages[message.chat.id].head(1).index, inplace=True)
+        self.remove_trailing_last_messages(message.chat.id)
+        
+    def remove_trailing_last_messages(self, chat_id):
+        # Remove the oldest message as long as the prompt is too long
+        while self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id])) > self.max_n_tokens:
+            self.last_messages[chat_id].drop(self.last_messages[chat_id].head(1).index, inplace=True)
+        return
         
     def get_n_tokens(self, text):
         """ Calculate the number of tokens in text
@@ -157,7 +164,7 @@ class BotHead:
         prompt = self.dataframe_to_prompt(last_messages)
         print(f"Prompt\n----------------------------------- \n", prompt, "\n-----------------------------------")
         # Get the response
-        response = self.lang_model.get_only_new_tokens(prompt, temperature=0.3, max_new_tokens=80)
+        response = self.lang_model.get_only_new_tokens(prompt, temperature=0.3, max_new_tokens=80)[0]
         print(f"Response\n----------------------------------- \n", response, "\n-----------------------------------")
         responses = self.parse_response(response)
         return responses
