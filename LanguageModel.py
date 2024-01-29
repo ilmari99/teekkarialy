@@ -5,6 +5,7 @@ import random
 import numpy as np
 import os
 import pandas as pd
+from openai import OpenAI
 
 class LanguageModel:
     def __init__(self, model_name, model=None, tokenizer=None):
@@ -18,7 +19,7 @@ class LanguageModel:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def generate(self, prompt, temperature=0.5, max_new_tokens=50):
-        #print(f"PROMPT --------------------------------------------\n{prompt}\n--------------------------------------------")
+        print(f"PROMPT --------------------------------------------\n{prompt}\n--------------------------------------------")
         input = self.tokenizer(prompt, return_tensors='pt')
         output = self.model.generate(
             **input,
@@ -43,6 +44,25 @@ class LanguageModel:
     def get_only_until_token(self, prompt, temperature=0.5, max_new_tokens=50, token='[MEG]'):
         output = self.get_only_new_tokens(prompt, temperature, max_new_tokens)
         return output.split(token)[0] + token
+    
+class OpenAILanguageModel:
+    """ This class implements functionality that is used to interact with the OpenAI API.
+    """
+    def __init__(self, api_key, model = None, model_kwargs = {}):
+        self.api_key = api_key
+        self.model = "gpt-3.5-turbo"
+        self.model_kwargs = model_kwargs
+        self.client = OpenAI(api_key=self.api_key)
+        
+    def generate_response(self, prompt_json):
+        """ A chat completion.
+        """
+        response = self.client.chat.completions.create(model=self.model,
+                                                       messages=prompt_json["messages"],
+                                                       **self.model_kwargs
+                                                       )
+        return response
+        
 
 
 
