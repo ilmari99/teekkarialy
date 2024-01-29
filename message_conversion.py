@@ -101,3 +101,21 @@ def message_2_df_row(message : Message) -> pd.Series:
     message_text = "(image or file)" if message_text == "" else message_text
     
     return pd.DataFrame({"id": msg_id, "time": send_time, "from": sender, "text": message_text, "reply_to_message_id": reply_id}, index=[0])
+
+def message_df_row_2_openai_json(row : pd.Series, bot_name) -> str:
+    """ Convert a chat message (series) to part of an OpenAI prompt.
+    The series has the columns "id", "time", "from", "text", "reply_to_message_id",
+    and this function converts the series to the format:
+    If 'from' is not bot_name:
+        {"role" : "user", "name" : <from>, "content" : "{'id': <id>,'time': <time>, 'text': <text>, 'reply_to_message_id': <reply_to_message_id>}"}
+    OR if <from> is the bot_name:
+        {"role" : "assistant", "name" : >bot_name>, "content" : "{'id': <id>,'time': <time>, 'text': <text>, 'reply_to_message_id': <reply_to_message_id>}"}
+    """
+    if 'from' not in row.index:
+        raise Exception("Message has no sender.")
+    if row["from"] == bot_name:
+        return json.dumps({"role" : "assistant", "name" : bot_name, "content" : str(row.to_dict())})
+    elif row["from"] != bot_name:
+        return json.dumps({"role" : "user", "name" : row["from"], "content" : str(row.to_dict())})
+    else:
+        raise Exception("What")
