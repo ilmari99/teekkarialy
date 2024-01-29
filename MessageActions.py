@@ -7,9 +7,11 @@ import random
 from typing import Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from telebot.types import Message
+from BotHead import BotHead
 from utils import get_curr_time, unix_time_to_ISO, parse_username
 if TYPE_CHECKING:
     from BotHead import BotHead
+    
     
 JOKE_BEGIN_PROMPTS = [
     "Keksin eile hauskan vitsin",
@@ -67,11 +69,17 @@ class OnFirstMessageInNewChat(BaseHandler):
         # Trigger this, if the received message is the first message in the chat
         if len(self.tg_bot.last_messages[chat_id]) > 1:
             return False
-        
+
         # Introduce the bot in a polite but fun way
-        message_part1 = "Kiitos ryhmään pääsystä! Olen Teekkariuteen pohjautuva tekoäly. \
-        Yritän jatkaa keskustelua samalla tyylillä, lisäten siihen huumoria, hehe. \
-        Tässä teille yksi vitsi: "
+        message_part1 = ("Kiitos ryhmään pääsystä! Olen Teekkariuteen pohjautuva tekoäly. "
+                         "Yritän jatkaa keskustelua samalla tyylillä, lisäten siihen huumoria, hehe."
+        )
+        # Check if self.tg_bot has method 'get_only_until_token'
+        if not hasattr(self.tg_bot, "get_only_until_token"):
+            self.tg_bot.send_message_wrapper(msg.chat.id, message_part1)
+            return True
+        
+        message_part1 += "Tässä teille yksi vitsi: "
         joke_begin = self.get_random_joke_begin()
         prompt = self.get_additional_message_prompt(msg) + message_part1 + joke_begin
         # Generate a joke
@@ -88,14 +96,9 @@ class OnFirstMessageInNewChat(BaseHandler):
 class GiveCommandInformation(BaseHandler):
     """ Give information about the supported commands.
     """
-    command = "/gpt-help"
-    def handle(self, msg : Message) -> Any:
-        """ If the message is "/gpt", give information about the bot.
-        """
-        input_msg_id = msg.message_id
-        if msg.content_type != "text" or not msg.text.startswith(self.command):
-            return False
-        bot_info ="""
+    def __init__(self, tg_bot: BotHead):
+        super().__init__(tg_bot)
+        self.bot_info = """
         Moi!
         Olen TurkuNLP:n kouluttamaan suomalaiseen GPT malliin pohjautuva tekoäly, johon on lisätty huumoria LUT:sta.
         Olen koulutettu keskustelun historialla, ja yritän jatkaa keskustelua samalla tyylillä, mutta lisäten siihen huumoria.
@@ -104,8 +107,18 @@ class GiveCommandInformation(BaseHandler):
         /gpt-help - Tietoa komennoista
         /vitsi [mistä] - Lähetä vitsi. 'mistä' voi specifioida mistä aiheesta vitsi halutaan. Esim. '/vitsi Teemu'
         """
+        if hasattr(self.tg_bot, "bot_info"):
+            self.bot_info = self.tg_bot.bot_info
+    
+    command = "/gpt-help"
+    def handle(self, msg : Message) -> Any:
+        """ If the message is "/gpt", give information about the bot.
+        """
+        input_msg_id = msg.message_id
+        if msg.content_type != "text" or not msg.text.startswith(self.command):
+            return False
         
-        self.tg_bot.send_message_wrapper(msg.chat.id, bot_info, reply_to_message_id=input_msg_id)   
+        self.tg_bot.send_message_wrapper(msg.chat.id, self.bot_info, reply_to_message_id=input_msg_id)   
         return True
     
 class MakeJoke(BaseHandler):
@@ -126,6 +139,12 @@ class MakeJoke(BaseHandler):
         
         if msg.content_type != "text" or not msg.text.startswith(self.command):
             return False
+        
+        if hasattr(self.tg_bot, "make_joke"):
+            joke = self.tg_bot.make_joke(msg)
+            self.tg_bot.send_message_wrapper(msg.chat.id, joke, reply_to_message_id=msg.message_id)
+            return True
+        
         msg_text = msg.text.lower()
         input_msg_id = msg.message_id
         
@@ -155,7 +174,12 @@ class LMGenerateOnTriggerPhrase(BaseHandler):
     """ This is called if the message contains a trigger phrase.
     If a trigger is found, the bot sends a reply.
     """
-    trigger_phrases = ["bot","gpt","?", "ai", "neuroverk", "tekoäly"]
+    def __init__(self, tg_bot: BotHead):
+        super().__init__(tg_bot)
+        self.trigger_phrases = ["bot","gpt","?", "ai", "neuroverk", "tekoäly"]
+        if hasattr(self.tg_bot, "trigger_phrases"):
+            self.trigger_phrases = self.tg_bot.trigger_phrases
+
     def handle(self, msg: Message) -> Any:
         """ If the message contains a trigger phrase, send a reply.
         """
