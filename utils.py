@@ -12,7 +12,7 @@ SEPARATOR = "[FS]"
 def read_chat_history_csv(filepath):
     """ Standardized way to read a chat history csv.
     """
-    df = pd.read_csv(filepath, sep=";")
+    df = pd.read_csv(filepath, sep=";",encoding="utf-8")
     # Fill nan's with empty strings
     df.fillna("", inplace=True)
     # Convert response_to_message_id to int if it is not empty
