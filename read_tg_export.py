@@ -21,6 +21,8 @@ if __name__ == "__main__":
     # Each folder in data folder contains a 'result.json' file
     # containing the chat history
     for i,folder in enumerate(os.listdir(data_folder)):
+        if "OldData" in folder.lower():
+            continue
         print(f"Reading chat history from {folder}...")
         path = os.path.join(data_folder, folder, "result.json")
         
