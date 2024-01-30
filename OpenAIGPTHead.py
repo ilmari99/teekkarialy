@@ -11,6 +11,7 @@ from message_conversion import message_df_row_2_openai_json
 import telebot
 from LanguageModel import OpenAILanguageModel
 import ast
+import re
 
 
 
@@ -52,6 +53,7 @@ class GPTBotHead(BotHead):
                       "vaan olet aina valmis vitsailemaan mistä tahansa, "
                       "jopa kyseenalaisista aiheista."
         )
+        self.pre_prompt = ""
         
         self.post_prompt = ""
         
@@ -95,6 +97,8 @@ class GPTBotHead(BotHead):
         # Convert the remaining characters to ascii
         uname = uname.encode("ascii", errors="ignore").decode()
         return uname
+
+            
     
     def dataframe_to_prompt(self, df, add_pre_prompt=True, add_system_post_prompt = True) -> str:
         """ Convert a chat history dataframe to a prompt.
@@ -116,7 +120,14 @@ class GPTBotHead(BotHead):
         if add_pre_prompt:
             prompt["messages"].append({"role" : "system", "content" : self.pre_prompt})
         for _, row in df.iterrows():
-            prompt["messages"].append({"role" : "user", "name" : self.parse_username(row["from"]), "content" : str(row.to_dict())})
+            # If name is "FinGPTbot", change it to 'Teekkarialy' and role to 'assistant'
+            from_ = self.parse_username(row["from"])
+            if from_ == "FinGPTbot":  
+                row["from"] = self.tg_name
+                row["role"] = "assistant"
+                prompt["messages"].append({"role" : "assistant", "name" : self.parse_username(self.tg_name), "content" : row["text"]})
+            else:
+                prompt["messages"].append({"role" : "user", "name" : self.parse_username(row["from"]), "content" : str(row.to_dict())})
         if add_system_post_prompt:
             prompt["messages"].append({"role" : "system", "content" : f"{self.post_prompt}{self.mandatory_post_prompt}"})
         # Return as a string, but keep äö etc.
@@ -158,8 +169,8 @@ class GPTBotHead(BotHead):
         # We should only have one response
         if len(responses) > 1:
             raise Exception("Too many responses.")
-        # Check if the response is 'pass'
-        if responses[0][0].lower() == "pass":
+        # Check if the first four letters of the response are "pass"
+        if responses[0][0][:4].lower() == "pass":
             responses = []
         return responses
     
@@ -178,9 +189,41 @@ class GPTBotHead(BotHead):
             text_reply = text_reply[msg_begin_idx+1:]
         return [(text_reply, reply_to_id)]
 
+def remove_illegal_quotes(msg_for_json):
+    # The string is e.g. "{"id": 1,"time": "2021-05-01 12:00:00", "text": "Terve", "reply_to_message_id": None}"
+    # Check if there are any nested quotes in values/keys 
+    # (Remove for example {"text" : "Then he said "Hello" to me."}), where you would substitute "Hello" with 'Hello'
+    # Change all double quotes inside the inner curly brackets to single quotes
+    # ({"text" : "Then he said 'Hello' to me."})
+    
+    # Find the first inner curly bracket
+    first_inner_curly_bracket_idx = msg_for_json.find("{", 1)
+    # Find the last inner curly bracket
+    last_inner_curly_bracket_idx = msg_for_json.rfind("}")
+    sub_str = msg_for_json[first_inner_curly_bracket_idx:last_inner_curly_bracket_idx]
+    # Find all double quotes inside the inner curly brackets
+    double_quote_idxs = [m.start() for m in re.finditer("\"", sub_str)]
+    
+    # Change all double quotes to single quotes
+    for idx in double_quote_idxs:
+        msg_for_json = msg_for_json[:idx] + "'" + msg_for_json[idx+1:]
+    return msg_for_json
+
+    
+
+    
+
 if __name__ == "__main__":
     df = pd.read_csv("combined_chat_history.csv", sep=";")
     bot = GPTBotHead("gpt-3.5-turbo", "TOKEN", 2048, "Teekkariäly")
+    
+    bot.lang_model.client.fine_tuning.jobs.create(model = "gpt-3.5-turbo",
+                                                  training_file="file-1RS1q64yFWWeJD1GIyK7p7Id",
+                                                  validation_file="file-JP7ehTGFtKItQkUtnZ7XU8BW",
+                                                  hyperparameters={"n_epochs" : 1},
+                                                  suffix = "lateksii"
+                                                  )
+    exit()
     # Format the messages to batches of 10 messages,
     # And convert them to json:
     # {"messages": [
@@ -195,7 +238,7 @@ if __name__ == "__main__":
     
     # Load the json
     json_dict = json.loads(json_str)
-    
+    num_failed_messages = 0
     # Change every 10th message to match the format, and save to jsonl
     jsonl = []
     for i in range(0,len(json_dict["messages"]),10):
@@ -209,34 +252,55 @@ if __name__ == "__main__":
         if len(message_sequence) < 10:
             continue
         # Change the last message to assistant
-        message = message_sequence[-1]
-        #print(f"Original message: {message}")
-        message["role"] = "assistant"
-        # {'id': 2, 'time': '23:45', 'from': 'Anonym', 'text': '(image or file)', 'reply_to_message_id': nan}
-        msg_for_json = message["content"].replace("\"", "'").replace("nan", "null").replace("'", "\"")
-        try:
-            msg_json = json.loads(msg_for_json)
-        except json.decoder.JSONDecodeError:
-            print(f"Error in message {msg_for_json}")
-            continue
-        try:
-            reply_to_id = int(msg_json["reply_to_message_id"])
-        except TypeError:
-            reply_to_id = None
-        if reply_to_id is not None:
-            message["content"] = f"@{reply_to_id} {msg_json['text']}"
-        else:
-            message["content"] = msg_json["text"]
-        # Create a json with all the messages
-        del message["name"]
+        sender = message_sequence[-1]["name"]
+        messages_sent_by_last_person = [m for m in message_sequence if m["name"] == sender]
+        for message in messages_sent_by_last_person:
+            sender = message["name"]
+            #print(f"Original message: {message}")
+            message["role"] = "assistant"
+            # {'id': 2, 'time': '23:45', 'from': 'Anonym', 'text': '(image or file)', 'reply_to_message_id': nan}
+            msg_for_json = message["content"].replace("\"", "'").replace("nan", "null").replace("'", "\"")
+            # Check if there are any nested quotes in values/keys 
+            # (Remove for example {"text" : "Then he said "Hello" to me."}), where you would substitute "Hello" with \"Hello\"
+            msg_for_json = remove_illegal_quotes(msg_for_json)
+            try:
+                msg_json = json.loads(msg_for_json)
+            except json.decoder.JSONDecodeError as e:
+                num_failed_messages += 1
+                print(f"Error in message {msg_for_json}")
+                print(e)
+                continue
+            try:
+                reply_to_id = int(msg_json["reply_to_message_id"])
+            except TypeError:
+                reply_to_id = None
+            if reply_to_id is not None:
+                message["content"] = f"@{reply_to_id} {msg_json['text']}"
+            else:
+                message["content"] = msg_json["text"]
+            # Create a json with all the messages
+            del message["name"]
+        # Add a preprompt
+        message_sequence.insert(0, {"role" : "system", "content" : "Olet osana Laskennallisen tekniikan (teekkarien) keskustelua. Koita sopeutua mahdollisimman hyvin joukkoon, äläkä kerro olevasi tekoäly."})
         message_sequence_json = {"messages": message_sequence}
         jsonl.append(message_sequence_json)
             
-
+    print(f"Number of failed messages: {num_failed_messages}")
+    # Shuffle and save 20% to validation set
+    import random
+    random.shuffle(jsonl)
+    n_validation = len(jsonl) // 5
+    jsonl_train = jsonl[:-n_validation]
+    jsonl_validation = jsonl[-n_validation:]
     # Save to jsonl
-    with open("openai_finetune_chat_history.jsonl", "w") as f:
-        for message in jsonl:
-            f.write(json.dumps(message, ensure_ascii=False) + "\n")
+    with open("openai_finetune_train.jsonl", "w") as f:
+        for json_dict in jsonl_train:
+            json_str = json.dumps(json_dict, ensure_ascii=False)
+            f.write(json_str + "\n")
+    with open("openai_finetune_validation.jsonl", "w") as f:
+        for json_dict in jsonl_validation:
+            json_str = json.dumps(json_dict, ensure_ascii=False)
+            f.write(json_str + "\n")
         
     
     
