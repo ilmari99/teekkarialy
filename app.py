@@ -12,7 +12,7 @@ MAX_NUM_TOKENS = 2048
 CHAT_TYPES = ['group', 'supergroup', 'private', 'channel', 'bot' ]
 ALLOWED_CHAT_IDS = [-1001630430176, 1455609782, 2071428449]
 #bot = BotHead(MODEL_NAME, TOKEN, N_MESSAGES)
-bot = GPTBotHead("gpt-3.5-turbo", TOKEN, MAX_NUM_TOKENS, "Teekkariäly")
+bot = GPTBotHead("ft:gpt-3.5-turbo-0613:personal::8mVFPo8F", TOKEN, MAX_NUM_TOKENS, "Teekkariäly")
 
 MESSAGE_ACTIONS = [
     OnFirstMessageInNewChat,
