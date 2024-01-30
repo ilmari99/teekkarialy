@@ -55,7 +55,7 @@ class GPTBotHead(BotHead):
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
-            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 2 ,"temperature" : 0.8, "frequency_penalty" : 0.8})
+            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 1 , "top_p" : 0.92})
         print("Bot initialized")
         
     def get_joke_prompt(self, msg):
