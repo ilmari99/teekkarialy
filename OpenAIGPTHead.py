@@ -53,7 +53,7 @@ class GPTBotHead(BotHead):
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
-            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"temperature" : 0.5, "frequency_penalty" : 0.5, "presence_penalty" : -0.3})
+            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 2 ,"temperature" : 0.5, "frequency_penalty" : 0.8, "presence_penalty" : -0.3})
         print("Bot initialized")
         
     def get_joke_prompt(self, msg):
@@ -107,7 +107,8 @@ class GPTBotHead(BotHead):
             if from_ in ["FinGPTbot", self.tg_name]:
                 row["from"] = self.tg_name
                 row["role"] = "assistant"
-                prompt["messages"].append({"role" : "assistant", "name" : self.parse_username(self.tg_name), "content" : row["text"]})
+                #prompt["messages"].append({"role" : "assistant", "name" : self.parse_username(self.tg_name), "content" : row["text"]})
+                prompt["messages"].append({"role" : "assistant", "content" : row["text"]})
             else:
                 prompt["messages"].append({"role" : "user", "name" : self.parse_username(row["from"]), "content" : str(row.to_dict())})
         if add_system_post_prompt:
