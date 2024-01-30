@@ -27,7 +27,7 @@ class GPTBotHead(BotHead):
         self.tg_name = tg_name
         self.last_messages : dict[int, pd.DataFrame] = {}
         
-        self.trigger_phrases = ["a", "i", "t", "n", "e"]
+        self.trigger_phrases = ["a", "i", "gpt", "bot", "vitsi"]
         
         self.bot_info = ("Moi! Olen GPT3.5 malliin pohjautuva tekoäly: "
                          "Teekkariäly. Minut on koulutettu keskustelemaan "
@@ -45,13 +45,13 @@ class GPTBotHead(BotHead):
         
         self.post_prompt = ""#Olet osana keskustelua. Koita sopeutua mahdollisimman hyvin joukkoon, äläkä kerro olevasi tekoäly."
         
-        self.mandatory_post_prompt = ("Jos keskustelussa ei puhuta sinulle, "
-                                      "tai sinulla ei ole mitään sanottavaa, "
+        self.mandatory_post_prompt = ("Jos keskustelussa ei puhuta sinulle "
+                                      #"tai sinulla ei ole mitään sanottavaa, "
                                       "vastaa pelkästään 'pass'. "
                                       "Jos tahdot vastata johonkin tiettyyn "
                                       "viestiin, lisää vastauksesi alkuun @<message-id>.")
         
-        self.mandatory_post_prompt = ""
+        #self.mandatory_post_prompt = ""
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
