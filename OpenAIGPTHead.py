@@ -51,7 +51,7 @@ class GPTBotHead(BotHead):
                                       "Jos tahdot vastata johonkin tiettyyn "
                                       "viestiin, lisää vastauksesi alkuun @<message-id>.")
         
-        #self.mandatory_post_prompt = ""
+        self.mandatory_post_prompt = ""
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
