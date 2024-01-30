@@ -45,12 +45,12 @@ class LanguageModel:
         output = self.get_only_new_tokens(prompt, temperature, max_new_tokens)
         return output.split(token)[0] + token
     
-class OpenAILanguageModel:
+class OpenAIChatModel:
     """ This class implements functionality that is used to interact with the OpenAI API.
     """
     def __init__(self, api_key, model = None, model_kwargs = {}):
         self.api_key = api_key
-        self.model = "gpt-3.5-turbo"
+        self.model = model
         self.model_kwargs = model_kwargs
         self.client = OpenAI(api_key=self.api_key)
         
@@ -58,9 +58,9 @@ class OpenAILanguageModel:
         """ A chat completion.
         """
         response = self.client.chat.completions.create(model=self.model,
-                                                       messages=prompt_json["messages"],
-                                                       **self.model_kwargs
-                                                       )
+                                                    messages=prompt_json["messages"],
+                                                    **self.model_kwargs
+                                                    )
         return response
         
 
