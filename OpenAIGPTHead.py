@@ -43,13 +43,15 @@ class GPTBotHead(BotHead):
 
         self.pre_prompt = "Olet osana Laskennallisen tekniikan (teekkarien) keskustelua. Koita sopeutua mahdollisimman hyvin joukkoon, äläkä kerro olevasi tekoäly."
         
-        self.post_prompt = ""
+        self.post_prompt = ""#Olet osana keskustelua. Koita sopeutua mahdollisimman hyvin joukkoon, äläkä kerro olevasi tekoäly."
         
-        self.mandatory_post_prompt = ("Jos et kuulu keskusteluun "
+        self.mandatory_post_prompt = ("Jos keskustelussa ei puhuta sinulle, "
                                       "tai sinulla ei ole mitään sanottavaa, "
                                       "vastaa pelkästään 'pass'. "
                                       "Jos tahdot vastata johonkin tiettyyn "
                                       "viestiin, lisää vastauksesi alkuun @<message-id>.")
+        
+        self.mandatory_post_prompt = ""
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
