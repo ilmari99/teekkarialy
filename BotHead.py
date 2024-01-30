@@ -51,6 +51,8 @@ class BotHead:
             self.last_messages[chat_id] = pd.DataFrame(columns=["id", "time", "from", "text", "reply_to_message_id"])
         else:
             self.last_messages[chat_id] = utils.read_chat_history_csv("ChatDatas/" + str(chat_id) + ".csv")
+        # Only keep at most 20
+        self.last_messages[chat_id] = self.last_messages[chat_id].tail(20)
         print(f"Initialized chat {chat_id}")
         return
     
@@ -94,6 +96,7 @@ class BotHead:
         # Remove the oldest message as long as the prompt is too long
         while self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id])) > self.max_n_tokens:
             self.last_messages[chat_id].drop(self.last_messages[chat_id].head(1).index, inplace=True)
+        print(f"Prompt length: {self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id]))}")
         return
         
     def get_n_tokens(self, text):
