@@ -113,7 +113,7 @@ class GPTBotHead(BotHead):
                 prompt["messages"].append({"role" : "assistant", "content" : row["text"]})
             else:
                 prompt["messages"].append({"role" : "user", "name" : self.parse_username(row["from"]), "content" : str(row.to_dict())})
-        if add_system_post_prompt:
+        if add_system_post_prompt and len(self.post_prompt + self.mandatory_post_prompt) > 0:
             prompt["messages"].append({"role" : "system", "content" : f"{self.post_prompt}{self.mandatory_post_prompt}"})
         # Return as a string, but keep äö etc.
         s = json.dumps(prompt, ensure_ascii=False)
