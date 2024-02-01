@@ -22,6 +22,9 @@ def send_finetune_job(model_id, train_file_id, validation_file_id, epochs = 2):
         model=model_id,
         training_file= train_file_id,
         validation_file= validation_file_id,
+        hyperparameters={
+            "n_epochs": epochs,
+        },
     )
     return
 
