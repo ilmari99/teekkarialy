@@ -27,7 +27,8 @@ class GPTBotHead(BotHead):
         self.tg_name = tg_name
         self.last_messages : dict[int, pd.DataFrame] = {}
         
-        self.trigger_phrases = ["a", "i", "gpt", "bot", "vitsi"]
+        self.trigger_phrases = ["ai", "gpt", "bot", "vitsi", "teekkariäly"]
+        self.trigger_probability = 0.1
         
         self.bot_info = ("Moi! Olen GPT3.5 malliin pohjautuva tekoäly: "
                          "Teekkariäly. Minut on koulutettu keskustelemaan "
@@ -156,6 +157,9 @@ class GPTBotHead(BotHead):
             raise Exception("Too many responses.")
         # Check if the first four letters of the response are "pass"
         if responses and len(responses[0][0]) >= 4 and responses[0][0][:4].lower() == "pass":
+            responses = []
+        # If the response is "(image or file)", pass
+        if responses and responses[0][0].startswith("(image or file)"):
             responses = []
         return responses
     
