@@ -28,8 +28,8 @@ MESSAGE_ACTIONS = [action(bot) for action in MESSAGE_ACTIONS]
 def message_stack_handler(message):
     bot.store_item(message)
     # Check if the message is from an allowed chat
-    #if message.chat.id not in ALLOWED_CHAT_IDS:
-    #    return
+    if message.chat.id not in ALLOWED_CHAT_IDS:
+        return
     if message.date < bot.start_time:
         return
     for action in MESSAGE_ACTIONS:
