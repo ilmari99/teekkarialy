@@ -77,8 +77,13 @@ class RandomlyRespond(BaseHandler):
             return False
         if random.random() > self.trigger_probability:
             return False
-        reply = self.tg_bot.create_replies(chat_id)[0][0]
-        self.tg_bot.send_message_wrapper(msg.chat.id, reply)
+        reply = self.tg_bot.create_replies(chat_id)
+        num_tried = 0
+        while not reply and num_tried < 4:
+            reply = self.tg_bot.create_replies(chat_id)
+            num_tried += 1
+        reply_text = reply[0][0]
+        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text)
         return True
     
     
