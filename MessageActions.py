@@ -30,7 +30,7 @@ JOKE_BEGINS = [
     "",
 ]
 
-
+        
 class BaseHandler(ABC):
     """ This is the base class for all handlers.
     This class is not meant to be used directly, and this is only used to define the interface for handlers.
@@ -58,6 +58,29 @@ class BaseHandler(ABC):
     def handle(self, msg : Message) -> Any:
         """ Takes in a message, and returns True if the message is handled, and False otherwise."""
         pass
+    
+
+class RandomlyRespond(BaseHandler):
+    """ Randomly respond to messages.
+    """
+    def __init__(self, tg_bot : 'BotHead', trigger_probability=0.1):
+        super().__init__(tg_bot)
+        self.trigger_probability = 0.1
+        if hasattr(self.tg_bot, "trigger_probability"):
+            self.trigger_probability = self.tg_bot.trigger_probability
+        
+    def handle(self, msg : Message) -> Any:
+        """ If the message is from a new chat, introduce the bot.
+        """
+        chat_id = msg.chat.id
+        if len(self.tg_bot.last_messages[chat_id]) == 0:
+            return False
+        if random.random() > self.trigger_probability:
+            return False
+        reply = self.tg_bot.create_replies(chat_id)[0][0]
+        self.tg_bot.send_message_wrapper(msg.chat.id, reply)
+        return True
+    
     
 class OnFirstMessageInNewChat(BaseHandler):
     """ If a message is received from a new chat, introduce the bot.
