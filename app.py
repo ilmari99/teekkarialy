@@ -1,7 +1,7 @@
 import random
 from BotHead import BotHead
 from OpenAIGPTHead import GPTBotHead
-from MessageActions import LMGenerateOnTriggerPhrase, MakeJoke, GiveCommandInformation, OnFirstMessageInNewChat, RandomlyRespond
+from MessageActions import LMGenerateOnTriggerPhrase, MakeJoke, GiveCommandInformation, OnFirstMessageInNewChat, RandomlyRespond, ReactWhenRespondedTo
 
 with open("_token.txt", "r") as f:
     TOKEN = f.read().strip()
@@ -20,6 +20,7 @@ MESSAGE_ACTIONS = [
     MakeJoke,
     RandomlyRespond,
     LMGenerateOnTriggerPhrase,
+    ReactWhenRespondedTo,
 ]
 MESSAGE_ACTIONS = [action(bot) for action in MESSAGE_ACTIONS]
 

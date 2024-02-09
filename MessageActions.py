@@ -59,6 +59,27 @@ class BaseHandler(ABC):
         """ Takes in a message, and returns True if the message is handled, and False otherwise."""
         pass
     
+class ReactWhenRespondedTo(BaseHandler):
+    """ Reacts to message if someone replies to a message the bot sent.
+    """
+    def handle(self, msg : Message) -> Any:
+        """ If the message is a reply to a message the bot sent, react to it.
+        """
+        if not self.check_message_is_text(msg):
+            return False
+        if msg.reply_to_message is None:
+            return False
+        if msg.reply_to_message.from_user.id != self.tg_bot.tg_bot.id:
+            return False
+        chat_id = msg.chat.id
+        reply = self.tg_bot.create_replies(chat_id)
+        num_tried = 0
+        while not reply and num_tried < 3:
+            reply = self.tg_bot.create_replies(chat_id)
+            num_tried += 1
+        reply_text = reply[0][0]
+        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text)
+        return True
 
 class RandomlyRespond(BaseHandler):
     """ Randomly respond to messages.
