@@ -69,7 +69,9 @@ class ReactWhenRespondedTo(BaseHandler):
             return False
         if msg.reply_to_message is None:
             return False
-        if msg.reply_to_message.from_user.username != self.tg_bot.tg_name:
+        #print(f"Reply to message from {msg.reply_to_message.from_user.username}")
+        #print(f"Id: {msg.reply_to_message.from_user.id}")
+        if msg.reply_to_message.from_user.id != self.tg_bot.id_:
             return False
         chat_id = msg.chat.id
         reply = self.tg_bot.create_replies(chat_id)

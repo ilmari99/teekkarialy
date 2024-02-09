@@ -19,7 +19,7 @@ class GPTBotHead(BotHead):
     """
     
     def __init__(self, model_name, access_token, max_n_tokens = 2048, tg_name="Comic"):
-        
+        super().__init__(model_name, access_token, max_n_tokens, tg_name)
         self.start_time = time.time()
         self.model_name = model_name
         self.access_token = access_token

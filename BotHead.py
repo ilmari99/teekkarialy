@@ -35,7 +35,9 @@ class BotHead:
         pre_prompt = f"Nimeni on {self.tg_name} ja olen hauska ja ystävällinen Teekkari tekoäly LUT:sta. Harrastan komiikkaa ja koodausta."
         self.pre_prompt = pre_prompt + "\n"
         self.tg_bot = telebot.TeleBot(self.access_token)
-        self.lang_model = LanguageModel(self.model_name)
+        self.id_ = self.tg_bot.get_me().id
+        if "gpt-3.5-turbo" not in self.model_name:
+            self.lang_model = LanguageModel(self.model_name)
         print("Bot initialized")
         
     def _init_last_messages(self, chat_id):
