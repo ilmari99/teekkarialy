@@ -8,11 +8,12 @@ with open("_token.txt", "r") as f:
 
 #MODEL_NAME = 'gpt3-xl-finetuned-v3-2-2Epoch'
 MODEL_NAME = "gpt3-xl-finetuned-bigdata-v1"
-MAX_NUM_TOKENS = 2048
+MAX_NUM_TOKENS = 4000
 CHAT_TYPES = ['group', 'supergroup', 'private', 'channel', 'bot' ]
 ALLOWED_CHAT_IDS = [-1001630430176, 1455609782, 2071428449, -1001856493108]
 #bot = BotHead(MODEL_NAME, TOKEN, N_MESSAGES)
-bot = GPTBotHead("ft:gpt-3.5-turbo-0613:personal::8mnRuwgR", TOKEN, MAX_NUM_TOKENS, "Teekkariäly")
+#bot = GPTBotHead("ft:gpt-3.5-turbo-0613:personal::8mnRuwgR", TOKEN, MAX_NUM_TOKENS, "Teekkariäly")
+bot = GPTBotHead("ft:gpt-4o-mini-2024-07-18:personal:lateksii-4epoch:A0TouzXP", TOKEN, MAX_NUM_TOKENS, "Teekkariäly")
 
 MESSAGE_ACTIONS = [
     OnFirstMessageInNewChat,

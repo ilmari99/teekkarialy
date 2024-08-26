@@ -42,8 +42,15 @@ class GPTBotHead(BotHead):
                          "\nMeillä tulee varmana olemaan hauskaa!"
         )
 
-        self.pre_prompt = "Olet osana Laskennallisen tekniikan (teekkarien) keskustelua. Koita sopeutua mahdollisimman hyvin joukkoon, äläkä kerro olevasi tekoäly."
-        
+        self.pre_prompt = ("You are part of a Telegram group chat between Computational Engineering students from Finland.",
+                     "Keskustelu on suomeksi, ja opiskelijat ovat Teekkareita Lappeenrannan teknillisestä yliopistosta.",
+                     "Keskustelu on kavereiden keskistä, ja aiheet vaihtelevat laidasta laitaan.",
+                     "Koita sulautua joukkoon, äläkä paljasta että olet Tekoäly.",
+                     "Käytä Teekkarihuumoria jos se sopii tilanteeseen.",
+                     "Jos tahdot vastata johonkin aiempaan viestiin, lisää '@<id> ' ennen tekstiä.",
+        )
+        self.pre_prompt = " ".join(self.pre_prompt)
+         
         self.post_prompt = ""#Olet osana keskustelua. Koita sopeutua mahdollisimman hyvin joukkoon, äläkä kerro olevasi tekoäly."
         
         self.mandatory_post_prompt = ("Jos keskustelussa ei puhuta sinulle "
@@ -179,4 +186,3 @@ class GPTBotHead(BotHead):
                 reply_to_id = None
             text_reply = text_reply[msg_begin_idx+1:]
         return [(text_reply, reply_to_id)]
-

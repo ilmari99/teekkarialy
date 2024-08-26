@@ -36,7 +36,7 @@ class BotHead:
         self.pre_prompt = pre_prompt + "\n"
         self.tg_bot = telebot.TeleBot(self.access_token)
         self.id_ = self.tg_bot.get_me().id
-        if "gpt-3.5-turbo" not in self.model_name:
+        if self.model_name not in ["gpt-3.5-turbo", "gpt-4o", "gpt-4o-mini", "ft:gpt-4o-mini-2024-07-18:personal:lateksii-4epoch:A0TouzXP"]:
             self.lang_model = LanguageModel(self.model_name)
         print("Bot initialized")
         
