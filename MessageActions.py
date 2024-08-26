@@ -227,7 +227,7 @@ class LMGenerateOnTriggerPhrase(BaseHandler):
     """
     def __init__(self, tg_bot: BotHead):
         super().__init__(tg_bot)
-        self.trigger_phrases = ["bot","gpt","?", "ai", "neuroverk", "tekoäly"]
+        self.trigger_phrases = ["bot","gpt","?", "neuroverk", "tekoäly"]
         if hasattr(self.tg_bot, "trigger_phrases"):
             self.trigger_phrases = self.tg_bot.trigger_phrases
 

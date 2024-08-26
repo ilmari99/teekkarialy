@@ -28,7 +28,7 @@ class GPTBotHead(BotHead):
         self.last_messages : dict[int, pd.DataFrame] = {}
         
         self.trigger_phrases = ["ai", "gpt", "bot", "vitsi", "teekkariäly"]
-        self.trigger_probability = 0.1
+        self.trigger_probability = 0.12
         
         self.bot_info = ("Moi! Olen GPT3.5 malliin pohjautuva tekoäly: "
                          "Teekkariäly. Minut on koulutettu keskustelemaan "
@@ -63,7 +63,7 @@ class GPTBotHead(BotHead):
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
-            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 1 , "top_p" : 0.92})
+            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 1 , "top_p" : 0.85,"presence_penalty" : 1.2, "frequency_penalty" : 1.2})
         print("Bot initialized")
         
     def get_joke_prompt(self, msg):
