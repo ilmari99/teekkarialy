@@ -27,14 +27,14 @@ class GPTBotHead(BotHead):
         self.tg_name = tg_name
         self.last_messages : dict[int, pd.DataFrame] = {}
         
-        self.trigger_phrases = ["ai", "gpt", "bot", "vitsi", "teekkariäly"]
+        self.trigger_phrases = ["gpt", "bot", "vitsi", "teekkariäly"]
         self.trigger_probability = 0.12
         
-        self.bot_info = ("Moi! Olen GPT3.5 malliin pohjautuva tekoäly: "
-                         "Teekkariäly. Minut on koulutettu keskustelemaan "
-                         "teekkarien kanssa, ja yritän jatkaa keskustelua "
+        self.bot_info = ("Moi! Olen GPT-4o-mini malliin perustuva tekoäly: "
+                         "Teekkariäly. Minut on koulutettu Lateksii keskusteluilla, ja yritän jatkaa keskustelua "
                          "luontevasti. Minä luen aina viestit, jos minulle saapuu viesti jossa on jotain seuraavista: "
                          f"{self.trigger_phrases}."
+                         "Vastaan myös aina jos vastaat viestiini (reply)."
                          " Toimin myös Komennoilla:\n"
                          "\t- /gpt-help - Tietoa komennoista"
                          "\t- /vitsi [mistä] - Lähetä vitsi. 'mistä' voi specifioida mistä "
