@@ -140,6 +140,14 @@ class GPTBotHead(BotHead):
         response = self.lang_model.generate_response(prompt).choices[0].message.content
         return response
     
+    def reengage_chat(self, chat_id):
+        prompt = self.dataframe_to_prompt(self.last_messages[chat_id], add_system_post_prompt=False)
+        prompt = json.loads(prompt)
+        joke_prompt = "Kerro random vitsi, joka mieluusti liittyy chatin historiaan, teekkariuteen, tai on muuten vaan hauska."
+        prompt["messages"].append({"role" : "system", "content" : joke_prompt})
+        response = self.lang_model.generate_response(prompt).choices[0].message.content
+        return response
+    
     
     def create_replies(self, chat_id):
         """ create a list of messages (text,id) to send based on the latest messages.

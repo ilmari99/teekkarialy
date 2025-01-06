@@ -12,7 +12,10 @@ from telebot.types import Message
 from message_conversion import message_2_df_row, message_df_row_2_string, message_string_2_df_row
 import utils
 from utils import BEGIN_MSG_DELIMITER, END_MSG_DELIMITER, SEPARATOR
-
+import multiprocessing
+import datetime
+# Keep track of messages, that are scheduled to be sent
+SCHEDULED_MESSAGES = {} # {chat_id : when the last message will be sent}
 
 """ The telegram bots head.
 
@@ -59,7 +62,7 @@ class BotHead:
         return
     
     
-    def dataframe_to_prompt(self, df, add_pre_prompt=True, add_post_prompt=True):
+    def dataframe_to_prompt(self, df, add_pre_prompt=True, add_post_prompt=True, delay=0):
         """ Convert a chat history dataframe to a prompt.
         [MSG]<id>[FS]<time>[FS]<sender>[FS]<message>[FS]<reply_to_message_id>[MEG]
         """
@@ -68,7 +71,7 @@ class BotHead:
             prompt += message_df_row_2_string(row) + "\n"
         if add_post_prompt:
             new_msg_id = df.iloc[-1]["id"] + 1
-            new_msg_sent_time = get_curr_time()
+            new_msg_sent_time = (pd.Timestamp.now() + pd.Timedelta(seconds=delay)).strftime("%H:%M")
             sender = self.tg_name
             series_to_convert = pd.Series({"id": new_msg_id, "time": new_msg_sent_time, "from": sender, "text": "", "reply_to_message_id": None})
             prompt += message_df_row_2_string(series_to_convert, only_prompt_string=True)
@@ -98,7 +101,7 @@ class BotHead:
         # Remove the oldest message as long as the prompt is too long
         while self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id])) > self.max_n_tokens:
             self.last_messages[chat_id].drop(self.last_messages[chat_id].head(1).index, inplace=True)
-        print(f"Prompt length: {self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id]))}")
+        #print(f"Prompt length: {self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id]))}")
         return
         
     def get_n_tokens(self, text):
@@ -106,7 +109,7 @@ class BotHead:
         """
         return len(self.lang_model.tokenizer(text)["input_ids"])
         
-    def send_message_wrapper(self, chat_id, message_text, reply_to_message_id=None, max_send_tries=2):
+    def __send_message_wrapper_old(self, chat_id, message_text, reply_to_message_id=None, max_send_tries=2):
         try:
             tries = 0
             success = False
@@ -120,12 +123,49 @@ class BotHead:
                 if tries > max_send_tries:
                     print(f"Sending message {message_text} failed.")
                     raise Exception("Sending message failed.")
-        except Exception as e:
+        except Exception:
             return False
         self.store_item(sent_msg)
         self.tg_name = self.parse_username(sent_msg.from_user.username)
         return True
     
+    def send_message_wrapper(self, chat_id, message_text, reply_to_message_id=None, max_send_tries=2, delay=0):
+        global SCHEDULED_MESSAGES
+        
+        # If there is a scheduled message, schedule the new message 3s after the last message, otherwise keep the delay
+        if chat_id in SCHEDULED_MESSAGES:
+            # The message will be sent 3s after the last message
+            last_message_sent = SCHEDULED_MESSAGES[chat_id] # UNIX time
+            delay = max(0,last_message_sent - time.time()) + 3
+        SCHEDULED_MESSAGES[chat_id] = time.time() + delay
+            
+        def send_message():
+            print(f"Sending message in {delay} seconds.", flush=True)
+            time.sleep(delay)
+            tries = 0
+            success = False
+            while not success and tries < max_send_tries:
+                try:
+                    sent_msg = self.tg_bot.send_message(chat_id, message_text, reply_to_message_id=reply_to_message_id, allow_sending_without_reply=True)
+                    success = True
+                except Exception as e:
+                    tries += 1
+                    if tries >= max_send_tries:
+                        print(f"Sending message {message_text} failed after {max_send_tries} tries.")
+                        return
+            if success:
+                self.store_item(sent_msg)
+                self.tg_name = self.parse_username(sent_msg.from_user.username)
+            return
+        
+        if delay == 0:
+            send_message()
+        else:
+            p = multiprocessing.Process(target=send_message)
+            p.start()
+        return
+
+
     def parse_response(self, text_reply : str) -> List[Tuple[str, int]]:
         """ Parse the response from the model.
         The first line is parsed as the reply, and the rest are sent separately as long as the sender is "GPT".
@@ -158,7 +198,7 @@ class BotHead:
         return send_messages
     
     
-    def create_replies(self, chat_id):
+    def create_replies(self, chat_id, delay=0):
         """ create a list of messages (text,id) to send based on the latest messages.
         """
         # Get the last messages
@@ -166,7 +206,7 @@ class BotHead:
             self._init_last_messages(chat_id)
         last_messages = self.last_messages[chat_id]
         # Convert to prompt
-        prompt = self.dataframe_to_prompt(last_messages)
+        prompt = self.dataframe_to_prompt(last_messages, delay=delay)
         print(f"Prompt\n----------------------------------- \n", prompt, "\n-----------------------------------")
         # Get the response
         response = self.lang_model.get_only_new_tokens(prompt, temperature=0.3, max_new_tokens=80)[0]

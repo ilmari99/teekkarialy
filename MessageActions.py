@@ -80,7 +80,8 @@ class ReactWhenRespondedTo(BaseHandler):
             reply = self.tg_bot.create_replies(chat_id)
             num_tried += 1
         reply_text = reply[0][0]
-        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text)
+        delay = random.randint(0,5*60)
+        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text, delay=delay)
         return True
 
 class RandomlyRespond(BaseHandler):
@@ -106,7 +107,8 @@ class RandomlyRespond(BaseHandler):
             reply = self.tg_bot.create_replies(chat_id)
             num_tried += 1
         reply_text = reply[0][0]
-        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text)
+        delay = random.randint(0,5*60)
+        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text, delay=delay)
         return True
     
     
@@ -217,8 +219,7 @@ class MakeJoke(BaseHandler):
         print(f"Prompt --------------------------------------------\n{prompt}\n--------------------------------------------")
         
         message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.5, max_new_tokens=70, token="[FS]").replace("[FS]", "")
-        
-        self.tg_bot.send_message_wrapper(msg.chat.id, joke_begin + message_part2, reply_to_message_id=input_msg_id)
+        self.tg_bot.send_message_wrapper(msg.chat.id, joke_begin + message_part2, reply_to_message_id=input_msg_id, delay=0)
         return True
 
 class LMGenerateOnTriggerPhrase(BaseHandler):
@@ -240,9 +241,28 @@ class LMGenerateOnTriggerPhrase(BaseHandler):
         if not any(trigger in msg_text for trigger in self.trigger_phrases):
             return False
         replies = self.tg_bot.create_replies(msg.chat.id)
+        msg_num = 0
+        delay = random.randint(0,5*60)
         for reply, reply_to_id in replies:
-            self.tg_bot.send_message_wrapper(msg.chat.id, reply, reply_to_message_id=reply_to_id)
+            self.tg_bot.send_message_wrapper(msg.chat.id, reply, reply_to_message_id=reply_to_id, delay=delay + msg_num*2)
+            msg_num += 1
         return True
     
+class MessageWhenChatSilent(MakeJoke):
+    """ This is called, when the chat has been silent for awhile and is
+    used to re-engage the chat with a new topic.
+    Overrides the handle, because this is called randomly, when no message is received.
+    """
+    def __init__(self, tg_bot: BotHead):
+        super().__init__(tg_bot)
     
-    
+    def handle(self, msg : Message) -> Any:
+        """ If the message is "/vitsi [topic]", generate a joke and send it.
+        """
+        if hasattr(self.tg_bot, "reengage_chat"):
+            print("Reengaging chat")
+            joke = self.tg_bot.reengage_chat(msg.chat)
+            print(f"Joke: {joke}")
+            self.tg_bot.send_message_wrapper(msg.chat, joke, reply_to_message_id=None)
+            return True
+        return False
