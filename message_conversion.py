@@ -62,7 +62,11 @@ def message_json_2_df_row(message_json : Dict):
     send_time = utils.data_datestamp_to_time(message_json["date"])
     sender = utils.parse_username(message_json.get("from",""))
     message_text = utils.parse_message_text(message_json.get("text",""))
-    reply_id = message_json.get("reply_to_message_id",None)
+    reply_id_val = message_json.get("reply_to_message_id")
+    try:
+        reply_id = int(reply_id_val) if reply_id_val is not None else None
+    except (ValueError, TypeError):
+        reply_id = reply_id_val
     sticker_emoji = message_json.get("sticker_emoji","")
     
     # From 'read_tg_export.py'

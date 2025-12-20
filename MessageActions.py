@@ -74,14 +74,16 @@ class ReactWhenRespondedTo(BaseHandler):
         if msg.reply_to_message.from_user.id != self.tg_bot.id_:
             return False
         chat_id = msg.chat.id
-        reply = self.tg_bot.create_replies(chat_id)
-        num_tried = 0
-        while not reply and num_tried < 3:
-            reply = self.tg_bot.create_replies(chat_id)
-            num_tried += 1
-        reply_text = reply[0][0]
         delay = random.randint(0,5*60)
-        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text, delay=delay)
+        def supply_reply():
+            replies = []
+            attempts = 0
+            while not replies and attempts < 3:
+                replies = self.tg_bot.create_replies(chat_id)
+                attempts += 1
+            return replies
+
+        self.tg_bot.send_generated_replies(msg.chat.id, supply_reply, delay=delay)
         return True
 
 class RandomlyRespond(BaseHandler):
@@ -101,14 +103,16 @@ class RandomlyRespond(BaseHandler):
             return False
         if random.random() > self.trigger_probability:
             return False
-        reply = self.tg_bot.create_replies(chat_id)
-        num_tried = 0
-        while not reply and num_tried < 4:
-            reply = self.tg_bot.create_replies(chat_id)
-            num_tried += 1
-        reply_text = reply[0][0]
         delay = random.randint(0,5*60)
-        self.tg_bot.send_message_wrapper(msg.chat.id, reply_text, delay=delay)
+        def supply_reply():
+            replies = []
+            attempts = 0
+            while not replies and attempts < 4:
+                replies = self.tg_bot.create_replies(chat_id)
+                attempts += 1
+            return replies
+
+        self.tg_bot.send_generated_replies(msg.chat.id, supply_reply, delay=delay)
         return True
     
     
@@ -192,34 +196,32 @@ class MakeJoke(BaseHandler):
         
         if msg.content_type != "text" or not msg.text.startswith(self.command):
             return False
-        
-        if hasattr(self.tg_bot, "make_joke"):
-            joke = self.tg_bot.make_joke(msg)
-            self.tg_bot.send_message_wrapper(msg.chat.id, joke, reply_to_message_id=msg.message_id)
-            return True
-        
-        msg_text = msg.text.lower()
-        input_msg_id = msg.message_id
-        
-        # Parse the joke topic
-        joke_topic = msg_text.replace(self.command, "").strip()
-        if joke_topic == "":
-            joke_topic = None
-        
-        # Select a random joke prompt
-        message_part1 = self.get_random_joke_prompt()
-        # If a joke topic is specified, add it to the prompt
-        if joke_topic:
-            message_part1 += f" aiheesta '{joke_topic}'"
-        message_part1 += ": "
-        joke_begin = self.get_random_joke_begin()
-        # Add a message beginning '[MSG]<id>[FS]<time>[FS]<sender>[FS]' to the prompt
-        prompt = self.get_additional_message_prompt(msg) + message_part1 + joke_begin
-        
-        print(f"Prompt --------------------------------------------\n{prompt}\n--------------------------------------------")
-        
-        message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.5, max_new_tokens=70, token="[FS]").replace("[FS]", "")
-        self.tg_bot.send_message_wrapper(msg.chat.id, joke_begin + message_part2, reply_to_message_id=input_msg_id, delay=0)
+
+        def supply_joke():
+            if hasattr(self.tg_bot, "make_joke"):
+                joke = self.tg_bot.make_joke(msg)
+                return [(joke, msg.message_id)] if joke else []
+
+            msg_text = msg.text.lower()
+            input_msg_id = msg.message_id
+
+            joke_topic = msg_text.replace(self.command, "").strip()
+            if joke_topic == "":
+                joke_topic = None
+
+            message_part1 = self.get_random_joke_prompt()
+            if joke_topic:
+                message_part1 += f" aiheesta '{joke_topic}'"
+            message_part1 += ": "
+            joke_begin = self.get_random_joke_begin()
+            prompt = self.get_additional_message_prompt(msg) + message_part1 + joke_begin
+
+            print(f"Prompt --------------------------------------------\n{prompt}\n--------------------------------------------")
+
+            message_part2 = self.tg_bot.lang_model.get_only_until_token(prompt, temperature=0.5, max_new_tokens=70, token="[FS]").replace("[FS]", "")
+            return [(joke_begin + message_part2, input_msg_id)]
+
+        self.tg_bot.send_generated_replies(msg.chat.id, supply_joke)
         return True
 
 class LMGenerateOnTriggerPhrase(BaseHandler):
@@ -240,12 +242,13 @@ class LMGenerateOnTriggerPhrase(BaseHandler):
         msg_text = msg.text.lower()
         if not any(trigger in msg_text for trigger in self.trigger_phrases):
             return False
-        replies = self.tg_bot.create_replies(msg.chat.id)
-        msg_num = 0
         delay = random.randint(0,5*60)
-        for reply, reply_to_id in replies:
-            self.tg_bot.send_message_wrapper(msg.chat.id, reply, reply_to_message_id=reply_to_id, delay=delay + msg_num*2)
-            msg_num += 1
+        self.tg_bot.send_generated_replies(
+            msg.chat.id,
+            reply_supplier=lambda: self.tg_bot.create_replies(msg.chat.id),
+            delay=delay,
+            per_reply_gap=2,
+        )
         return True
     
 class MessageWhenChatSilent(MakeJoke):
@@ -261,8 +264,12 @@ class MessageWhenChatSilent(MakeJoke):
         """
         if hasattr(self.tg_bot, "reengage_chat"):
             print("Reengaging chat")
-            joke = self.tg_bot.reengage_chat(msg.chat)
-            print(f"Joke: {joke}")
-            self.tg_bot.send_message_wrapper(msg.chat, joke, reply_to_message_id=None)
+
+            def supply_reengage():
+                joke = self.tg_bot.reengage_chat(msg.chat)
+                print(f"Joke: {joke}")
+                return [(joke, None)] if joke else []
+
+            self.tg_bot.send_generated_replies(msg.chat, supply_reengage)
             return True
         return False

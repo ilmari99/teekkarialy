@@ -30,8 +30,8 @@ class GPTBotHead(BotHead):
         self.trigger_phrases = ["gpt", "bot", "vitsi", "teekkariäly"]
         self.trigger_probability = 0.12
         
-        self.bot_info = ("Moi! Olen GPT-4o-mini malliin perustuva tekoäly: "
-                         "Teekkariäly. Minut on koulutettu Lateksii keskusteluilla, ja yritän jatkaa keskustelua "
+        self.bot_info = ("Moi! Olen GPT-4.1-mini malliin perustuva tekoäly: "
+                         "Teekkariäly. Minut on koulutettu Algebros keskustelulla, ja yritän jatkaa keskustelua "
                          "luontevasti. Minä luen aina viestit, jos minulle saapuu viesti jossa on jotain seuraavista: "
                          f"{self.trigger_phrases}."
                          "Vastaan myös aina jos vastaat viestiini (reply)."
@@ -42,12 +42,10 @@ class GPTBotHead(BotHead):
                          "\nMeillä tulee varmana olemaan hauskaa!"
         )
 
-        self.pre_prompt = ("You are part of a Telegram group chat between Computational Engineering students from Finland.",
-                     "Keskustelu on suomeksi, ja opiskelijat ovat Teekkareita Lappeenrannan teknillisestä yliopistosta.",
-                     "Keskustelu on kavereiden keskistä, ja aiheet vaihtelevat laidasta laitaan.",
-                     "Koita sulautua joukkoon, äläkä paljasta että olet Tekoäly.",
-                     "Käytä Teekkarihuumoria jos se sopii tilanteeseen.",
-                     "Jos tahdot vastata johonkin aiempaan viestiin, lisää '@<id> ' ennen tekstiä.",
+        self.pre_prompt = ("You are a participant in a Finnish Telegram group chat of Computational Engineering students at LUT. "
+            "Write naturally in Finnish with relaxed Teekkari humor when it fits. Blend in as a peer, don't reveal or hint you're an AI. "
+            "Keep responses concise, like a real chat message. If replying to a specific earlier message, prefix with @<id>. "
+            "Honor the informal, friendly tone; avoid overly formal language.",
         )
         self.pre_prompt = " ".join(self.pre_prompt)
          
@@ -63,14 +61,14 @@ class GPTBotHead(BotHead):
         
         self.tg_bot = telebot.TeleBot(self.access_token)
         with open("__openai_api_key.txt", "r") as f:
-            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 1 , "top_p" : 0.85,"presence_penalty" : 1.2, "frequency_penalty" : 1.2})
+            self.lang_model = OpenAIChatModel(f.read().strip(), model=self.model_name, model_kwargs={"n" : 1})# , "top_p" : 0.85,"presence_penalty" : 1.2, "frequency_penalty" : 1.2})
         print("Bot initialized")
         
     def get_joke_prompt(self, msg):
         # Joke is triggered by a message '/vitsi (aihe)'
         subject = msg.text.split(" ")[1:]
         if len(subject) == 0:
-            return "Kerro random vitsi, joka mieluusti liittyy chatin historiaan, teekkariuteen, tai on muuten vaan hauska."
+            return "Kerro vitsi, joka mieluusti liittyy chatin historiaan, teekkariuteen, tai on muuten vaan hauska."
         return "Kerro vitsi aiheesta " + " ".join(subject)
         
     def get_n_tokens(self, text):
@@ -174,7 +172,7 @@ class GPTBotHead(BotHead):
         if responses and len(responses[0][0]) >= 4 and responses[0][0][:4].lower() == "pass":
             responses = []
         # If the response is "(image or file)", pass
-        if responses and responses[0][0].startswith("(image or file)"):
+        if responses and "image or file" in responses[0][0].lower():
             responses = []
         return responses
     
@@ -182,7 +180,24 @@ class GPTBotHead(BotHead):
         """ Parse the response from the model.
         The response is a string, with optionally '@<id>' at the beginning of the message.
         """
+        def looks_like_prompt_echo(payload: str) -> bool:
+            required_keys = {"id", "time", "from", "text", "reply_to_message_id"}
+            has_all_keys = all((f'"{k}"' in payload) or (f"'{k}'" in payload) for k in required_keys)
+            if not has_all_keys:
+                return False
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                try:
+                    parsed = ast.literal_eval(payload)
+                except (ValueError, SyntaxError):
+                    return False
+            if not isinstance(parsed, dict):
+                return False
+            return required_keys.issubset(parsed.keys())
+
         reply_to_id = None
+        text_reply = text_reply.strip()
         if len(text_reply) < 1:
             return []
         if text_reply[0] == "@":
@@ -192,5 +207,7 @@ class GPTBotHead(BotHead):
             except ValueError:
                 warnings.warn(f"Message ID is supposed to be an integer, but got {text_reply[1:msg_begin_idx]}.")
                 reply_to_id = None
-            text_reply = text_reply[msg_begin_idx+1:]
+            text_reply = text_reply[msg_begin_idx+1:].lstrip()
+        if looks_like_prompt_echo(text_reply):
+            return []
         return [(text_reply, reply_to_id)]

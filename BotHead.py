@@ -14,6 +14,7 @@ import utils
 from utils import BEGIN_MSG_DELIMITER, END_MSG_DELIMITER, SEPARATOR
 import multiprocessing
 import datetime
+import threading
 # Keep track of messages, that are scheduled to be sent
 SCHEDULED_MESSAGES = {} # {chat_id : when the last message will be sent}
 
@@ -35,11 +36,19 @@ class BotHead:
         self.max_n_tokens = max_n_tokens
         self.tg_name = tg_name
         self.last_messages : dict[int, pd.DataFrame] = {}
+        self.default_reply_delay_range = (1, 60)
         pre_prompt = f"Nimeni on {self.tg_name} ja olen hauska ja ystävällinen Teekkari tekoäly LUT:sta. Harrastan komiikkaa ja koodausta."
         self.pre_prompt = pre_prompt + "\n"
         self.tg_bot = telebot.TeleBot(self.access_token)
-        self.id_ = self.tg_bot.get_me().id
-        if self.model_name not in ["gpt-3.5-turbo", "gpt-4o", "gpt-4o-mini", "ft:gpt-4o-mini-2024-07-18:personal:lateksii-4epoch:A0TouzXP"]:
+        #self.id_ = self.tg_bot.get_me().id
+        if self.model_name not in ["gpt-4.1-mini",
+                                   "gpt-3.5-turbo",
+                                   "gpt-4o",
+                                   "gpt-4o-mini",
+                                   "ft:gpt-4o-mini-2024-07-18:personal:lateksii-4epoch:A0TouzXP",
+                                   "ft:gpt-4.1-mini-2025-04-14:personal:algebros-finetune:CorBc1WN",
+                                   "ft:gpt-4.1-mini-2025-04-14:personal:algebros-finetune:CosugOff"
+                                   ]:
             self.lang_model = LanguageModel(self.model_name)
         print("Bot initialized")
         
@@ -103,6 +112,32 @@ class BotHead:
             self.last_messages[chat_id].drop(self.last_messages[chat_id].head(1).index, inplace=True)
         #print(f"Prompt length: {self.get_n_tokens(self.dataframe_to_prompt(self.last_messages[chat_id]))}")
         return
+
+    def refresh_last_messages(self, chat_id):
+        """Reload recent chat history from disk so delayed replies see the latest messages."""
+        chat_key = self._chat_id_key(chat_id)
+        chat_path = f"ChatDatas/{chat_key}.csv"
+        if not os.path.exists(chat_path):
+            self._init_last_messages(chat_key)
+            return
+        self.last_messages[chat_key] = utils.read_chat_history_csv(chat_path).tail(20)
+        self.remove_trailing_last_messages(chat_key)
+        return
+
+    def _compute_delay(self, chat_id, base_delay=None):
+        """Chain delays so multiple scheduled messages do not collide."""
+        chat_key = self._chat_id_key(chat_id)
+        base = base_delay if base_delay is not None else random.uniform(*self.default_reply_delay_range)
+        if chat_key in SCHEDULED_MESSAGES:
+            last_scheduled = SCHEDULED_MESSAGES[chat_key]
+            time_until_last = last_scheduled - time.time()
+            if time_until_last > 0:
+                return time_until_last + 3
+        return base
+
+    def _chat_id_key(self, chat_id):
+        """Ensure we consistently use a hashable chat identifier."""
+        return chat_id.id if hasattr(chat_id, "id") else chat_id
         
     def get_n_tokens(self, text):
         """ Calculate the number of tokens in text
@@ -115,7 +150,7 @@ class BotHead:
             success = False
             while not success:
                 try:
-                    sent_msg = self.tg_bot.send_message(chat_id, message_text, reply_to_message_id=reply_to_message_id, allow_sending_without_reply=True)
+                    sent_msg = self.tg_bot.send_message(chat_key, message_text, reply_to_message_id=reply_to_message_id, allow_sending_without_reply=True)
                     success = True
                 except Exception as e:
                     success = False
@@ -129,26 +164,24 @@ class BotHead:
         self.tg_name = self.parse_username(sent_msg.from_user.username)
         return True
     
-    def send_message_wrapper(self, chat_id, message_text, reply_to_message_id=None, max_send_tries=2, delay=0):
+    def send_message_wrapper(self, chat_id, message_text, reply_to_message_id=None, max_send_tries=2, delay=None):
         global SCHEDULED_MESSAGES
-        
-        # If there is a scheduled message, schedule the new message 3s after the last message, otherwise keep the delay
-        if chat_id in SCHEDULED_MESSAGES:
-            # The message will be sent 3s after the last message
-            last_message_sent = SCHEDULED_MESSAGES[chat_id] # UNIX time
-            delay = max(0,last_message_sent - time.time()) + 3
-        SCHEDULED_MESSAGES[chat_id] = time.time() + delay
-            
+
+        chat_key = self._chat_id_key(chat_id)
+        delay = self._compute_delay(chat_key, delay)
+        SCHEDULED_MESSAGES[chat_key] = time.time() + delay
+
         def send_message():
             print(f"Sending message in {delay} seconds.", flush=True)
-            time.sleep(delay)
+            if delay > 0:
+                time.sleep(delay)
             tries = 0
             success = False
             while not success and tries < max_send_tries:
                 try:
                     sent_msg = self.tg_bot.send_message(chat_id, message_text, reply_to_message_id=reply_to_message_id, allow_sending_without_reply=True)
                     success = True
-                except Exception as e:
+                except Exception:
                     tries += 1
                     if tries >= max_send_tries:
                         print(f"Sending message {message_text} failed after {max_send_tries} tries.")
@@ -156,13 +189,49 @@ class BotHead:
             if success:
                 self.store_item(sent_msg)
                 self.tg_name = self.parse_username(sent_msg.from_user.username)
+            SCHEDULED_MESSAGES[chat_key] = time.time()
             return
-        
-        if delay == 0:
-            send_message()
-        else:
-            p = multiprocessing.Process(target=send_message)
-            p.start()
+
+        threading.Thread(target=send_message, daemon=True).start()
+        return
+
+    def send_generated_replies(self, chat_id, reply_supplier, delay=None, per_reply_gap=2, max_send_tries=2):
+        """Wait for the delay, refresh history, generate replies, then send.
+
+        reply_supplier should return a list of (text, reply_to_id) tuples.
+        """
+        global SCHEDULED_MESSAGES
+
+        chat_key = self._chat_id_key(chat_id)
+        delay = self._compute_delay(chat_key, delay)
+        SCHEDULED_MESSAGES[chat_key] = time.time() + delay
+
+        def worker():
+            if delay > 0:
+                time.sleep(delay)
+            # Ensure we see the freshest chat history before generating
+            self.refresh_last_messages(chat_key)
+            replies = reply_supplier() or []
+            msg_idx = 0
+            for reply_text, reply_to in replies:
+                if not reply_text:
+                    continue
+                tries = 0
+                success = False
+                while tries < max_send_tries and not success:
+                    try:
+                        sent_msg = self.tg_bot.send_message(chat_key, reply_text, reply_to_message_id=reply_to, allow_sending_without_reply=True)
+                        success = True
+                        self.store_item(sent_msg)
+                        self.tg_name = self.parse_username(sent_msg.from_user.username)
+                    except Exception:
+                        tries += 1
+                if success and per_reply_gap and msg_idx < len(replies) - 1:
+                    time.sleep(per_reply_gap)
+                msg_idx += 1
+            SCHEDULED_MESSAGES[chat_key] = time.time()
+
+        threading.Thread(target=worker, daemon=True).start()
         return
 
 

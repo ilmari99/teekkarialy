@@ -33,6 +33,8 @@ if __name__ == "__main__":
         print(messages[0])
         messages = [message_json_2_df_row(m) for m in messages]
         df = pd.DataFrame(messages)
+        # Force alst column to int
+        df["reply_to_message_id"] = pd.to_numeric(df["reply_to_message_id"], errors='coerce').astype('Int64')
         print(f"Shape of dataframe: {df.shape}")
         
         # Write to csv
