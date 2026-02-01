@@ -40,7 +40,7 @@ class BotHead:
         pre_prompt = f"Nimeni on {self.tg_name} ja olen hauska ja ystävällinen Teekkari tekoäly LUT:sta. Harrastan komiikkaa ja koodausta."
         self.pre_prompt = pre_prompt + "\n"
         self.tg_bot = telebot.TeleBot(self.access_token)
-        #self.id_ = self.tg_bot.get_me().id
+        self.id_ = self.tg_bot.get_me().id
         if self.model_name not in ["gpt-4.1-mini",
                                    "gpt-3.5-turbo",
                                    "gpt-4o",
